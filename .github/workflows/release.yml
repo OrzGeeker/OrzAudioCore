@@ -107,9 +107,13 @@ jobs:
         with: {path: release, merge-multiple: true}
       - name: Publish release candidate
         if: contains(github.ref_name, '-')
-        run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes --verify-tag
+        run: |
+          mapfile -d '' assets < <(find release -type f -print0)
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes --verify-tag
         env: {GH_TOKEN: "${{ github.token }}"}
       - name: Publish stable release
         if: ${{ !contains(github.ref_name, '-') }}
-        run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag --latest
+        run: |
+          mapfile -d '' assets < <(find release -type f -print0)
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag --latest
         env: {GH_TOKEN: "${{ github.token }}"}
