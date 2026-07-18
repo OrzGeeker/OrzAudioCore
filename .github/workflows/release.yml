@@ -25,7 +25,12 @@ jobs:
             ${{ runner.temp }}/release/*.sha256
 
   server:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, preset: linux-x86_64, arch: x86_64}
+          - {runner: ubuntu-24.04-arm, preset: linux-arm64, arch: arm64}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -34,16 +39,16 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .wasm-build/cache
-          key: orz-decoder-sources-${{ runner.os }}-${{ hashFiles('script/fetch-decoder-sources.sh') }}
+          key: orz-decoder-sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('script/fetch-decoder-sources.sh') }}
       - name: Verify tag and manifest version
         run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./decoder-manifest.json').sdkVersion")"
       - run: ./script/fetch-decoder-sources.sh
       - run: ./script/build-native-libs.sh --strict
-      - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh linux-x86_64 "$RUNNER_TEMP/release"
-      - run: ./script/verify-elf-exports.sh .cmake-build/linux-x86_64/libOrzAudioCore.so
+      - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh "${{ matrix.preset }}" "$RUNNER_TEMP/release"
+      - run: ./script/verify-elf-exports.sh ".cmake-build/${{ matrix.preset }}/libOrzAudioCore.so"
       - uses: actions/upload-artifact@v4
         with:
-          name: server
+          name: server-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
