@@ -35,6 +35,11 @@ if [ "$(uname -s)" = "Darwin" ]; then
     export MACOSX_DEPLOYMENT_TARGET
     NATIVE_CFLAGS="$NATIVE_CFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
     NATIVE_CXXFLAGS="$NATIVE_CXXFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+else
+    # Full/server SDK produces a shared object on Linux, so every archive
+    # linked into it (including TLS-based AHX state) must be position independent.
+    NATIVE_CFLAGS="$NATIVE_CFLAGS -fPIC"
+    NATIVE_CXXFLAGS="$NATIVE_CXXFLAGS -fPIC"
 fi
 
 # Detect host architecture for --host flag in configure
