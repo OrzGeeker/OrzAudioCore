@@ -26,8 +26,9 @@ common=(
   -I"$SOURCE/include" -I"$SOURCE/dispatch" -O3 --no-entry
   -s WASM=1 -s MODULARIZE=1 -s FILESYSTEM=0
   -s ALLOW_MEMORY_GROWTH=1 -s MALLOC=emmalloc
+  -s 'INCOMING_MODULE_JS_API=["locateFile","wasmBinary"]'
   -s 'EXPORTED_FUNCTIONS=["_orz_abi_version","_orz_build_info","_orz_status_message","_orz_get_format_count","_orz_get_format_info","_orz_probe","_orz_decoder_create_memory","_orz_decoder_get_stream_info","_orz_decoder_render_f32","_orz_decoder_seek","_orz_decoder_select_subsong_v1","_orz_decoder_reset","_orz_decoder_cancel","_orz_decoder_destroy_v1","_malloc","_free"]'
-  -s 'EXPORTED_RUNTIME_METHODS=["UTF8ToString","stringToUTF8","lengthBytesUTF8"]'
+  -s 'EXPORTED_RUNTIME_METHODS=["UTF8ToString","stringToUTF8","lengthBytesUTF8","HEAPU8","HEAPU32","HEAPF32","HEAPF64"]'
 )
 
 # Classic worker glue used by OrzMusic's importScripts integration.
