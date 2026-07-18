@@ -40,6 +40,7 @@ jobs:
       - run: ./script/fetch-decoder-sources.sh
       - run: ./script/build-native-libs.sh --strict
       - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh linux-x86_64 "$RUNNER_TEMP/release"
+      - run: ./script/verify-elf-exports.sh .cmake-build/linux-x86_64/libOrzAudioCore.so
       - uses: actions/upload-artifact@v4
         with:
           name: server

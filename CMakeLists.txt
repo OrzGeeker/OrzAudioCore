@@ -49,6 +49,12 @@ target_include_directories(OrzAudioCore
     PUBLIC $<BUILD_INTERFACE:${ORZ_SOURCE}/include> $<INSTALL_INTERFACE:include>
     PRIVATE ${ORZ_SOURCE}/dispatch ${ORZ_THIRDPARTY})
 target_compile_definitions(OrzAudioCore PRIVATE ORZ_AUDIO_CORE_BUILD=1)
+if(ORZ_BUILD_SHARED AND UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+    target_link_options(OrzAudioCore PRIVATE
+        "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/orz-audio-core.map")
+    set_property(TARGET OrzAudioCore APPEND PROPERTY
+        LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/orz-audio-core.map")
+endif()
 if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     # Builtin MIDI and BP synthesis use libm. Keep it a transitive dependency
     # because consumers may link the static OrzAudioCore archive.

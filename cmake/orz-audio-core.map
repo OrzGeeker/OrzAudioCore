@@ -1,0 +1,19 @@
+ORZ_AUDIO_CORE_1.0 {
+    global:
+        orz_abi_version;
+        orz_build_info;
+        orz_status_message;
+        orz_get_format_count;
+        orz_get_format_info;
+        orz_probe;
+        orz_decoder_create_memory;
+        orz_decoder_get_stream_info;
+        orz_decoder_render_f32;
+        orz_decoder_seek;
+        orz_decoder_select_subsong_v1;
+        orz_decoder_reset;
+        orz_decoder_cancel;
+        orz_decoder_destroy_v1;
+    local:
+        *;
+};
