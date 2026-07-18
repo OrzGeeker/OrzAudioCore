@@ -4,6 +4,11 @@
 
 独立仓库已于 2026-07-18 建立 `main`，初始 SDK 提交为 `5fe6d07`。
 
+当前候选版本为 `v1.0.0-rc.3`。OrzMusic 通过根目录
+`audio-core-sdk.lock.json` 固定 Web builtin-lite 制品、提交与 SHA-256；更新时运行
+`script/update-audio-core-web.sh`。服务端 full profile 在双轨期继续使用内嵌核心，
+待 full SDK 制品和所有格式 PCM 报告通过后再切换。
+
 当前仓库已经将 SDK 边界固定，迁移时应保留以下目录和文件：
 
 - `Sources/OrzAudioKitCXX/`：核心、decoder 和公共 C ABI。

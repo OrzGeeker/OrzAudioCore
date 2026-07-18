@@ -35,6 +35,7 @@ GME_URL="https://github.com/libgme/game-music-emu/archive/refs/tags/${GME_VERSIO
 
 # libsidplayfp — 用于 SID (Commodore 64) 格式
 SIDPLAYFP_VERSION="3.0.2"
+SIDPLAYFP_URL="https://github.com/libsidplayfp/libsidplayfp/releases/download/v${SIDPLAYFP_VERSION}/libsidplayfp-${SIDPLAYFP_VERSION}.tar.gz"
 
 # mpg123 — 用于 MO3 中 MP3 压缩采样的解码
 MPG123_VERSION="1.32.6"
