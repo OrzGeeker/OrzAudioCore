@@ -228,7 +228,7 @@ build_libopenmpt() {
         --without-flac \
         --without-zlib \
         CC=emcc CXX=em++ \
-        --prefix="$build_dir/install" || {
+        --prefix="$build_dir/install" >&2 || {
             warn "libopenmpt configure failed"
             popd >/dev/null
             echo ""
@@ -236,7 +236,7 @@ build_libopenmpt() {
         }
 
     log "Building libopenmpt..."
-    emmake make -j"$JOBS" || {
+    emmake make -j"$JOBS" >&2 || {
         warn "libopenmpt make failed"
         popd >/dev/null
         echo ""
@@ -276,7 +276,7 @@ build_libgme() {
         -DGME_ENABLE_GBS=OFF \
         -DGME_ENABLE_GYM=OFF \
         -DGME_ENABLE_HES=OFF \
-        -Wno-dev || {
+        -Wno-dev >&2 || {
             warn "gme cmake failed"
             popd >/dev/null
             echo ""
@@ -284,7 +284,7 @@ build_libgme() {
         }
 
     log "Building game-music-emu..."
-    emmake make -j"$JOBS" || {
+    emmake make -j"$JOBS" >&2 || {
         warn "gme make failed"
         popd >/dev/null
         echo ""
@@ -518,7 +518,7 @@ build_libsidplayfp() {
         --enable-static \
         --disable-silent-rules \
         CC=emcc CXX=em++ \
-        --prefix="$build_dir/install" || {
+        --prefix="$build_dir/install" >&2 || {
             warn "libsidplayfp configure failed"
             popd >/dev/null
             echo ""
@@ -526,7 +526,7 @@ build_libsidplayfp() {
         }
 
     log "Building libsidplayfp..."
-    emmake make -j"$JOBS" || {
+    emmake make -j"$JOBS" >&2 || {
         warn "libsidplayfp make failed"
         popd >/dev/null
         echo ""
@@ -583,10 +583,10 @@ build_mpg123() {
         --disable-modules \
         --with-cpu=generic \
         --enable-int-quality=no \
-        --prefix="$prefix" 2>&1 | tail -5
+        --prefix="$prefix" 2>&1 | tail -5 >&2
 
     log "Building mpg123..."
-    emmake make -j"$JOBS" install 2>&1 | tail -5
+    emmake make -j"$JOBS" install 2>&1 | tail -5 >&2
 
     local lib="$prefix/lib/libmpg123.a"
     if [ -f "$lib" ]; then
@@ -630,9 +630,9 @@ build_ogg() {
     emconfigure "$src_dir/configure" \
         --host="$host_triple" \
         --disable-shared --enable-static \
-        --prefix="$prefix" 2>&1 | tail -5
+        --prefix="$prefix" 2>&1 | tail -5 >&2
 
-    emmake make -j"$JOBS" install 2>&1 | tail -5
+    emmake make -j"$JOBS" install 2>&1 | tail -5 >&2
 
     local lib="$prefix/lib/libogg.a"
     if [ -f "$lib" ]; then
@@ -678,9 +678,9 @@ build_vorbis() {
         --host="$host_triple" \
         --disable-shared --enable-static \
         --with-ogg="$ogg_prefix" \
-        --prefix="$prefix" 2>&1 | tail -5
+        --prefix="$prefix" 2>&1 | tail -5 >&2
 
-    emmake make -j"$JOBS" install 2>&1 | tail -5
+    emmake make -j"$JOBS" install 2>&1 | tail -5 >&2
 
     local lib="$prefix/lib/libvorbis.a"
     local libfile="$prefix/lib/libvorbisfile.a"
