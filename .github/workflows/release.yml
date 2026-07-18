@@ -55,6 +55,7 @@ jobs:
 
   web:
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,9 +63,15 @@ jobs:
       - run: node script/check-release-readiness.mjs "${GITHUB_REF_NAME#v}"
       - uses: mymindstorm/setup-emsdk@v14
         with: {version: "4.0.10"}
+      - uses: actions/cache@v4
+        with:
+          path: .wasm-build/cache
+          key: orz-wasm-full-${{ runner.os }}-${{ hashFiles('script/build-wasm.sh') }}
+      - run: ORZ_WASM_OUTPUT_DIR="$GITHUB_WORKSPACE/SDK/Web/wasm" ./script/build-wasm.sh
       - run: ./script/build-wasm-lite.sh
       - working-directory: SDK/Web
-        run: npm install && npm run build && npm pack
+        run: npm install && npm run build && npm test && npm pack
+      - run: node script/verify-web-release.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: web

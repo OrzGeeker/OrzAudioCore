@@ -2,6 +2,7 @@
 .cmake-build/
 .swiftpm/
 .wasm-build/
+SDK/Web/wasm/
 Libraries/OrzAudioKit/native/*.a
 node_modules/
 SDK/Web/dist/

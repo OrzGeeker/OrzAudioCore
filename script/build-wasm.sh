@@ -212,7 +212,7 @@ build_libopenmpt() {
         fi
     done
 
-    CC=emcc CXX=em++ PKG_CONFIG_PATH="$pkg_conf_path" \
+    CC=emcc CXX=em++ AR=emar RANLIB=emranlib NM=emnm PKG_CONFIG_PATH="$pkg_conf_path" \
     "$src_dir/configure" \
         --host=wasm32-unknown-emscripten \
         --disable-shared \
@@ -228,7 +228,7 @@ build_libopenmpt() {
         --without-sdl2 \
         --without-flac \
         --without-zlib \
-        CC=emcc CXX=em++ \
+        CC=emcc CXX=em++ AR=emar RANLIB=emranlib NM=emnm \
         --prefix="$build_dir/install" >&2 || {
             warn "libopenmpt configure failed"
             popd >/dev/null
@@ -550,7 +550,9 @@ build_libsidplayfp() {
         inc_path="$(dirname "$inc_h_path")"  # 升一级到包含 sidplayfp/ 的目录
     fi
 
-    echo "$lib_path|$inc_path"
+    # The generated sidversion.h lives under the build tree, while the public
+    # headers remain in the source tree. Preserve both include roots.
+    echo "$lib_path|$inc_path|$build_dir/src"
 }
 
 # ------------------------------------------------------------------
