@@ -1,6 +1,6 @@
 {
   "name": "@orzmusic/audio-core",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "type": "module",
   "exports": {
     ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
