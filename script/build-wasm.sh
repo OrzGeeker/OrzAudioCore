@@ -848,11 +848,6 @@ generate_wrapper() {
 
     fi
 
-    # adplug (rad, d00, hsc, amd) — 需要 libadplug + libbinio
-    if [ -d "$BUILD_DIR/src/adplug/src" ] && [ -f "$BUILD_DIR/adplug/libadplug.a" ]; then
-        source_files+=("$ORZ_SRC/adplug/adplug_impl.c" "$ORZ_SRC/adplug/adplug_wrap.cpp")
-    fi
-
     # sc68 (sc68, ym) — 需要 sc68 源码
     if [ -d "$BUILD_DIR/src/sc68" ] && [ -f "$BUILD_DIR/src/sc68/api68/api68.h" ]; then
         source_files+=("$ORZ_SRC/sc68/sc68_impl.c")
@@ -1024,6 +1019,11 @@ generate_wrapper() {
         fi
     fi
     if [ -f "$adplug_lib" ]; then
+        # The wrapper must be selected after the library is built. On a clean
+        # release runner the earlier source-discovery phase runs before
+        # build_adplug(), which previously left the manifest entries backed by
+        # the weak stub even though libadplug.a was linked successfully.
+        source_files+=("$ORZ_SRC/adplug/adplug_impl.c" "$ORZ_SRC/adplug/adplug_wrap.cpp")
         libs+=("$adplug_lib")
         if [ -f "$binio_lib" ]; then
             libs+=("$binio_lib")
