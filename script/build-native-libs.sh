@@ -14,6 +14,15 @@
 #   ./script/build-native-libs.sh              # Build all libraries
 #   ./script/build-native-libs.sh --only-openmpt # Build only libopenmpt
 #   ./script/build-native-libs.sh --clean       # Clean native artifacts
+#
+# Cross-compilation (used by script/build-android.sh) — every override is optional
+# and defaults to the host-native behaviour:
+#   ORZ_BUILD_TAG=<tag>             build-<lib>-<tag> directory suffix (default: native)
+#   ORZ_NATIVE_OUT=<dir>            where the .a files land (default: $BUILD_DIR/native)
+#   ORZ_HOST_TRIPLE=<triple>        configure --host (default: detected host)
+#   ORZ_CMAKE_TOOLCHAIN=<file>      passed as -DCMAKE_TOOLCHAIN_FILE to the cmake libs
+#   ORZ_CMAKE_EXTRA_ARGS=<args>     extra -D flags for the cmake libs (space separated)
+#   ORZ_INSTALL_HOST_LIBS=0         do not copy archives into Libraries/OrzAudioKit/native
 # ============================================================================
 
 set -euo pipefail
@@ -24,6 +33,19 @@ SRC_DIR="$BUILD_DIR/src"
 NATIVE_DIR="$BUILD_DIR/native"
 CACHE_DIR="$BUILD_DIR/cache"
 INSTALL_DIR="$PROJECT_DIR/Libraries/OrzAudioKit/native"
+
+# 交叉编译覆盖项(默认值与原生构建完全一致)
+BUILD_TAG=${ORZ_BUILD_TAG:-native}
+NATIVE_DIR=${ORZ_NATIVE_OUT:-$BUILD_DIR/native}
+INSTALL_HOST_LIBS=${ORZ_INSTALL_HOST_LIBS:-1}
+CMAKE_CROSS_ARGS=()
+if [ -n "${ORZ_CMAKE_TOOLCHAIN:-}" ]; then
+    CMAKE_CROSS_ARGS+=("-DCMAKE_TOOLCHAIN_FILE=$ORZ_CMAKE_TOOLCHAIN")
+fi
+if [ -n "${ORZ_CMAKE_EXTRA_ARGS:-}" ]; then
+    # shellcheck disable=SC2206  # 有意按空格切分:-D 列表由调用方拼好
+    CMAKE_CROSS_ARGS+=(${ORZ_CMAKE_EXTRA_ARGS})
+fi
 
 JOBS=${JOBS:-$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)}
 HOST_CC=${CC:-clang}
@@ -55,7 +77,7 @@ detect_host() {
         *)       echo "$arch-unknown-${os}" ;;
     esac
 }
-HOST=$(detect_host)
+HOST="${ORZ_HOST_TRIPLE:-$(detect_host)}"
 
 # Colors
 RED='\033[0;31m'
@@ -83,6 +105,8 @@ done
 mkdir -p "$NATIVE_DIR"
 
 install_native_libraries() {
+    # 交叉编译时不写仓库内的 host 归档(会污染 Libraries/OrzAudioKit/native)。
+    [ "$INSTALL_HOST_LIBS" = "1" ] || return 0
     mkdir -p "$INSTALL_DIR"
     local library basename
     for library in "$NATIVE_DIR"/*.a; do
@@ -103,7 +127,7 @@ prepare_build_directory() {
 
 if $CLEAN; then
     log "Cleaning native build artifacts..."
-    rm -rf "$NATIVE_DIR" "$BUILD_DIR/build-*-native"
+    rm -rf "$NATIVE_DIR" "$BUILD_DIR/build-*-$BUILD_TAG"
     log "Done."
     exit 0
 fi
@@ -114,7 +138,7 @@ fi
 build_libopenmpt() {
     log "Building libopenmpt..."
     local src_dir="$SRC_DIR/libopenmpt"
-    local build_dir="$BUILD_DIR/build-libopenmpt-native"
+    local build_dir="$BUILD_DIR/build-libopenmpt-$BUILD_TAG"
     local output="$NATIVE_DIR/libopenmpt.a"
 
     if [ ! -f "$src_dir/configure" ]; then
@@ -142,15 +166,17 @@ build_libopenmpt() {
         --without-sdl2 \
         --without-flac \
         --without-zlib \
-        >/dev/null 2>&1 || {
+        >"$build_dir/configure.log" 2>&1 || {
             warn "libopenmpt configure failed"
+            tail -30 "$build_dir/configure.log" >&2
             popd >/dev/null
             return 1
         }
 
     log "Compiling libopenmpt..."
-    make -j"$JOBS" >/dev/null 2>&1 || {
+    make -j"$JOBS" >"$build_dir/build.log" 2>&1 || {
         warn "libopenmpt make failed"
+        tail -30 "$build_dir/build.log" >&2
         popd >/dev/null
         return 1
     }
@@ -179,7 +205,7 @@ build_libopenmpt() {
 build_libgme() {
     log "Building Game Music Emu..."
     local src_dir="$SRC_DIR/game-music-emu"
-    local build_dir="$BUILD_DIR/build-gme-native"
+    local build_dir="$BUILD_DIR/build-gme-$BUILD_TAG"
     local output="$NATIVE_DIR/libgme.a"
 
     if [ ! -d "$src_dir" ]; then
@@ -204,6 +230,7 @@ build_libgme() {
         -DGME_ENABLE_GBS=OFF \
         -DGME_ENABLE_GYM=OFF \
         -DGME_ENABLE_HES=OFF \
+        "${CMAKE_CROSS_ARGS[@]}" \
         >"$configure_log" 2>&1 || {
             warn "GME cmake failed"
             cat "$configure_log" >&2
@@ -241,7 +268,7 @@ build_libgme() {
 build_libsidplayfp() {
     log "Building libsidplayfp..."
     local src_dir="$SRC_DIR/libsidplayfp"
-    local build_dir="$BUILD_DIR/build-sidplayfp-native"
+    local build_dir="$BUILD_DIR/build-sidplayfp-$BUILD_TAG"
     local output="$NATIVE_DIR/libsidplayfp.a"
 
     if [ ! -f "$src_dir/configure" ]; then
@@ -258,15 +285,17 @@ build_libsidplayfp() {
         --host="$HOST" \
         --disable-shared \
         --enable-static \
-        >/dev/null 2>&1 || {
+        >"$build_dir/configure.log" 2>&1 || {
             warn "libsidplayfp configure failed"
+            tail -30 "$build_dir/configure.log" >&2
             popd >/dev/null
             return 1
         }
 
     log "Compiling libsidplayfp..."
-    make -j"$JOBS" >/dev/null 2>&1 || {
+    make -j"$JOBS" >"$build_dir/build.log" 2>&1 || {
         warn "libsidplayfp make failed"
+        tail -30 "$build_dir/build.log" >&2
         popd >/dev/null
         return 1
     }
@@ -294,7 +323,7 @@ build_libsidplayfp() {
 build_libbinio() {
     log "Building libbinio..."
     local src_dir="$SRC_DIR/libbinio"
-    local build_dir="$BUILD_DIR/build-libbinio-native"
+    local build_dir="$BUILD_DIR/build-libbinio-$BUILD_TAG"
     local output="$NATIVE_DIR/libbinio.a"
 
     # Download source if not present
@@ -318,8 +347,9 @@ build_libbinio() {
         --host="$HOST" \
         --disable-shared \
         --enable-static \
-        >/dev/null 2>&1 || {
+        >"$build_dir/configure.log" 2>&1 || {
             warn "libbinio configure failed"
+            tail -30 "$build_dir/configure.log" >&2
             popd >/dev/null
             return 1
         }
@@ -373,7 +403,7 @@ build_libbinio() {
 build_adplug() {
     log "Building AdPlug..."
     local src_dir="$SRC_DIR/adplug"
-    local build_dir="$BUILD_DIR/build-adplug-native"
+    local build_dir="$BUILD_DIR/build-adplug-$BUILD_TAG"
     local output="$NATIVE_DIR/libadplug.a"
 
     if [ ! -f "$src_dir/configure" ]; then
@@ -385,7 +415,7 @@ build_adplug() {
     pushd "$build_dir" >/dev/null || return 1
 
     # AdPlug needs libbinio
-    local binio_prefix="$BUILD_DIR/build-libbinio-native"
+    local binio_prefix="$BUILD_DIR/build-libbinio-$BUILD_TAG"
 
     CC="$HOST_CC" CXX="$HOST_CXX" CFLAGS="$NATIVE_CFLAGS" CXXFLAGS="$NATIVE_CXXFLAGS" \
     CPPFLAGS="-I$binio_prefix" \
@@ -397,8 +427,9 @@ build_adplug() {
         --disable-shared \
         --enable-static \
         --with-binio="$binio_prefix" \
-        >/dev/null 2>&1 || {
+        >"$build_dir/configure.log" 2>&1 || {
             warn "AdPlug configure failed"
+            tail -30 "$build_dir/configure.log" >&2
             popd >/dev/null
             return 1
         }
@@ -443,7 +474,7 @@ build_adplug() {
 build_libsc68() {
     log "Building sc68..."
     local src_dir="$SRC_DIR/sc68"
-    local build_dir="$BUILD_DIR/build-sc68-native"
+    local build_dir="$BUILD_DIR/build-sc68-$BUILD_TAG"
     local output="$NATIVE_DIR/libsc68.a"
 
     if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/api68/api68.h" ]; then
@@ -500,7 +531,7 @@ build_libsc68() {
 build_libasap() {
     log "Building ASAP..."
     local src_dir="$SRC_DIR/asap"
-    local build_dir="$BUILD_DIR/build-asap-native"
+    local build_dir="$BUILD_DIR/build-asap-$BUILD_TAG"
     local output="$NATIVE_DIR/libasap.a"
 
     if [ ! -f "$src_dir/asap.h" ]; then
@@ -526,7 +557,7 @@ build_libasap() {
 build_libuade() {
     log "Building uade (UAE Amiga emulator core)..."
     local src_dir="$SRC_DIR/uade"
-    local build_dir="$BUILD_DIR/build-uade-native"
+    local build_dir="$BUILD_DIR/build-uade-$BUILD_TAG"
     local output="$NATIVE_DIR/libuade.a"
 
     if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/newcpu.c" ]; then
@@ -601,7 +632,7 @@ build_libuade() {
 build_libv2m() {
     log "Building v2m-player..."
     local src_dir="$SRC_DIR/v2m"
-    local build_dir="$BUILD_DIR/build-v2m-native"
+    local build_dir="$BUILD_DIR/build-v2m-$BUILD_TAG"
     local output="$NATIVE_DIR/libv2m.a"
 
     if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/src/synth_core.cpp" ]; then
@@ -645,7 +676,7 @@ build_libv2m() {
 build_libahx2play() {
     log "Building ahx2play..."
     local src_dir="$SRC_DIR/ahx2play"
-    local build_dir="$BUILD_DIR/build-ahx2play-native"
+    local build_dir="$BUILD_DIR/build-ahx2play-$BUILD_TAG"
     local output="$NATIVE_DIR/libahx2play.a"
     local install_output="$PROJECT_DIR/Libraries/OrzAudioKit/native/libahx2play.a"
     local reset_patch="$PROJECT_DIR/Sources/OrzAudioKitCXX/uade/ahx2play-reset.patch"
@@ -669,7 +700,7 @@ build_libahx2play() {
         objs="$objs $obj"
     done
     ar cr "$output" $objs && ranlib "$output"
-    cp "$output" "$install_output"
+    [ "$INSTALL_HOST_LIBS" = "1" ] && cp "$output" "$install_output"
     log "libahx2play.a → $output"
 }
 
@@ -716,4 +747,6 @@ install_native_libraries
 log "=== Native libraries built ==="
 ls -lh "$NATIVE_DIR"/*.a 2>/dev/null || echo "(no .a files)"
 echo ""
-log "Next: update Package.swift with -L$NATIVE_DIR and remove decoder excludes"
+if [ "$INSTALL_HOST_LIBS" = "1" ]; then
+    log "Next: update Package.swift with -L$NATIVE_DIR and remove decoder excludes"
+fi

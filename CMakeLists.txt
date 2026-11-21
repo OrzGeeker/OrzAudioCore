@@ -60,6 +60,10 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     # because consumers may link the static OrzAudioCore archive.
     target_link_libraries(OrzAudioCore PUBLIC m)
 endif()
+if(ANDROID)
+    # Android 15+ 支持 16KB 页;Play 要求新提交的 native 库按 16KB 对齐。
+    target_link_options(OrzAudioCore PRIVATE "LINKER:-z,max-page-size=16384")
+endif()
 
 if(ORZ_PROFILE STREQUAL "builtin-lite")
     target_sources(OrzAudioCore PRIVATE ${ORZ_SOURCE}/stub_decoders.c)
@@ -73,7 +77,10 @@ else()
         ${ORZ_THIRDPARTY}/uade_combined ${ORZ_THIRDPARTY}/uade_combined/frontends/include)
     target_compile_definitions(OrzAudioCore PRIVATE ORZ_HAVE_OPENMPT ORZ_HAVE_GME)
     foreach(dependency openmpt gme sidplayfp adplug binio asap sc68 v2m ahx2play)
-        find_library(ORZ_${dependency}_LIB NAMES ${dependency} PATHS ${ORZ_NATIVE_LIB} NO_DEFAULT_PATH REQUIRED)
+        # NO_CMAKE_FIND_ROOT_PATH:Android/iOS 工具链把 CMAKE_FIND_ROOT_PATH_MODE_LIBRARY
+        # 设成 ONLY,不关掉的话显式 PATHS 也会被重新定向到 sysroot,永远找不到这些归档。
+        find_library(ORZ_${dependency}_LIB NAMES ${dependency}
+            PATHS ${ORZ_NATIVE_LIB} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
         target_link_libraries(OrzAudioCore PRIVATE ${ORZ_${dependency}_LIB})
     endforeach()
     # Keep zlib after static decoder archives so GNU ld --as-needed records
