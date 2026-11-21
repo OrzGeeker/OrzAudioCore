@@ -218,6 +218,8 @@ build_libgme() {
     local configure_log="$build_dir/configure.log"
     local build_log="$build_dir/build.log"
 
+    # 交叉编译参数用 ${arr[@]+"${arr[@]}"} 展开:macOS 自带 bash 3.2 在 set -u 下
+    # 会把空数组的 "${arr[@]}" 当 unbound variable(CI 上 full-macos 因此红过)。
     CC="$HOST_CC" CXX="$HOST_CXX" CFLAGS="$NATIVE_CFLAGS" CXXFLAGS="$NATIVE_CXXFLAGS" \
     cmake "$src_dir" \
         -DBUILD_SHARED_LIBS=OFF \
@@ -230,7 +232,7 @@ build_libgme() {
         -DGME_ENABLE_GBS=OFF \
         -DGME_ENABLE_GYM=OFF \
         -DGME_ENABLE_HES=OFF \
-        "${CMAKE_CROSS_ARGS[@]}" \
+        ${CMAKE_CROSS_ARGS[@]+"${CMAKE_CROSS_ARGS[@]}"} \
         >"$configure_log" 2>&1 || {
             warn "GME cmake failed"
             cat "$configure_log" >&2
