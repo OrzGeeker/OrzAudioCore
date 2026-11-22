@@ -3,7 +3,7 @@
  *
  * Formats: rad, d00, hsc (+ 20+ more OPL2/3 formats)
  * Uses: CEmuopl (emulated OPL2), CAdPlug factory pattern
- * File access: Write to MEMFS, then load via CProvider_Filesystem
+ * File access: AdPlug CFileProvider 直接从内存读（不落盘）
  */
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +13,7 @@
 
 #include <adplug.h>
 #include <emuopl.h>
+#include <binstr.h>   // binisstream:直接读内存,不落盘
 
 // Forward declarations (defined in adplug_impl.c)
 extern "C" void adplug_destroy();
@@ -39,7 +40,30 @@ struct AdPlugContext {
     bool playback_ended = false;
 };
 
-// Temporary filename for MEMFS
+/**
+ * 直接从内存把字节喂给 AdPlug。
+ *
+ * 以前这里是「把数据写进 /tmp，再用 CProvider_Filesystem 读回来」。在 WASM 里
+ * /tmp 是 Emscripten 的 MEMFS，能用；但 **Android 上根本没有 /tmp**，
+ * fopen 直接失败 → `amd`/`d00`/`hsc`/`rad` 四个 adplug 格式在真机上全部
+ * 「无法创建解码器(格式不支持或数据损坏)」。改成内存 provider 后三条平台一致。
+ */
+class COrzMemoryProvider : public CFileProvider {
+public:
+    COrzMemoryProvider(const unsigned char *data, int len)
+        : data_(data), len_(len) {}
+
+    binistream *open(std::string) const override {
+        return new binisstream((void *)data_, (unsigned long)len_);
+    }
+    void close(binistream *f) const override { delete f; }
+
+private:
+    const unsigned char *data_;
+    int len_;
+};
+
+// 假文件名计数（扩展名提示用）
 // 扩展名根据 orz_current_format 设置（"hsc"→".hsc" 等），使 AdPlug factory
 // 的扩展名匹配机制正确识别格式。程序化编译为 ".adplug" 走全 player 遍历。
 static std::atomic<unsigned int> tmp_counter{0};
@@ -51,7 +75,7 @@ extern "C" void *adplug_context_create(const char *format, const unsigned char *
     AdPlugContext *ctx = new(std::nothrow) AdPlugContext();
     if (!ctx) return NULL;
 
-    // 根据当前格式名确定 MEMFS 文件的扩展名
+    // 根据当前格式名确定「假文件名」的扩展名（AdPlug 用它做 player 匹配）
     const char *ext = ".adplug";
     if (format) {
         if (strcmp(format, "hsc") == 0) ext = ".hsc";
@@ -61,22 +85,16 @@ extern "C" void *adplug_context_create(const char *format, const unsigned char *
         else if (strcmp(format, "hsp") == 0) ext = ".hsp";
     }
 
-    // Write data to MEMFS with format-appropriate extension
-    char tmp_file_path[96];
-    snprintf(tmp_file_path, sizeof(tmp_file_path), "/tmp/adplug_%u%s", tmp_counter.fetch_add(1) + 1, ext);
-    FILE *f = fopen(tmp_file_path, "wb");
-    if (!f) { delete ctx; return NULL; }
-    if (fwrite(data, 1, (size_t)len, f) != (size_t)len) { fclose(f); remove(tmp_file_path); delete ctx; return NULL; }
-    fclose(f);
-
     // Create OPL emulator: 44100Hz, 16-bit, stereo
     ctx->opl = new(std::nothrow) CEmuopl(ctx->sample_rate, true, true);
-    if (!ctx->opl) { remove(tmp_file_path); delete ctx; return NULL; }
+    if (!ctx->opl) { delete ctx; return NULL; }
     ctx->opl->init();
 
-    // Load file with AdPlug factory（通过内容检测格式，不依赖扩展名）
-    ctx->player = CAdPlug::factory(tmp_file_path, ctx->opl);
-    remove(tmp_file_path);
+    // 用扩展名做 player 匹配提示，内容从内存读（不落盘，Android 上也成立）
+    char hint_name[64];
+    snprintf(hint_name, sizeof(hint_name), "mem_%u%s", tmp_counter.fetch_add(1) + 1, ext);
+    COrzMemoryProvider provider(data, len);
+    ctx->player = CAdPlug::factory(std::string(hint_name), ctx->opl, CAdPlug::players, provider);
     if (!ctx->player) {
         adplug_context_destroy(ctx); return NULL;
     }
@@ -85,8 +103,6 @@ extern "C" void *adplug_context_create(const char *format, const unsigned char *
     ctx->song_duration = ctx->player->songlength() / 1000.0;
     if (ctx->song_duration <= 0) ctx->song_duration = 120.0;
 
-    // MEMFS 是临时的，不需要显式删除
-    // 注意：在 ALLOW_MEMORY_GROWTH=1 时调用 remove() 可能导致 TextDecoder 异常
     return ctx;
 }
 
