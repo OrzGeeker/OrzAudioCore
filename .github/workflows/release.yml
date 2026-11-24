@@ -29,7 +29,10 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
-            ${{ runner.temp }}/conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-native
+          path: ${{ runner.temp }}/conformance/
 
   server:
     strategy:
@@ -65,7 +68,10 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
-            ${{ runner.temp }}/conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-server-${{ matrix.arch }}
+          path: ${{ runner.temp }}/conformance/
 
   web:
     runs-on: ubuntu-24.04
@@ -100,7 +106,10 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tgz
             ${{ runner.temp }}/release/*.sha256
-            ${{ runner.temp }}/conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-web
+          path: ${{ runner.temp }}/conformance/
 
   apple:
     runs-on: macos-15
@@ -136,7 +145,10 @@ jobs:
             ${{ runner.temp }}/release/*.zip
             ${{ runner.temp }}/release/*.swift
             ${{ runner.temp }}/release/*.swift.sha256
-            ${{ runner.temp }}/conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-apple
+          path: ${{ runner.temp }}/conformance/
 
   android:
     runs-on: ubuntu-24.04
@@ -194,7 +206,10 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
-            ${{ runner.temp }}/conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-windows-lite
+          path: ${{ runner.temp }}/conformance/
 
   windows-full:
     runs-on: windows-latest
@@ -244,7 +259,10 @@ jobs:
           path: |
             win-release/*.tar.gz
             win-release/*.sha256
-            conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-windows-full
+          path: conformance/
 
   conformance-android:
     runs-on: ubuntu-24.04
@@ -288,19 +306,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with: {pattern: native, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: windows-lite, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: windows-full, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: "server-*", path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: apple, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: web, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: conformance-android, path: conformance, merge-multiple: true}
+        with: {pattern: "conformance-*", path: conformance, merge-multiple: true}
       - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
       - run: node script/compare-conformance.mjs conformance/linux-x86_64-lite conformance/windows-x86_64-lite --allow-pcm-drift
       - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/windows-x86_64 --allow-pcm-drift

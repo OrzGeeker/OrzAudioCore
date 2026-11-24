@@ -99,7 +99,10 @@ jobs:
           path: |
             win-release/*.tar.gz
             win-release/*.sha256
-            conformance/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-windows-full
+          path: conformance/
 
   conformance-lite:
     strategy:
@@ -140,9 +143,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with: {pattern: conformance-full-macos, path: conformance, merge-multiple: true}
-      - uses: actions/download-artifact@v4
-        with: {pattern: windows-full, path: conformance, merge-multiple: true}
+        with: {pattern: "conformance-*", path: conformance, merge-multiple: true}
       - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/windows-x86_64 --allow-pcm-drift --sample-tolerance 0.001
 
   sanitizer-lite:
