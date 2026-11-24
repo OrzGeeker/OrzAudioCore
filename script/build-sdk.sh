@@ -15,9 +15,9 @@ node "$ROOT/script/generate-decoder-manifest.mjs" --check
 cmake --preset "$PROFILE" -S "$ROOT"
 build_args=()
 if $IS_MULTI_CONFIG; then build_args+=(--config Release); fi
-cmake --build --preset "$PROFILE" "${build_args[@]}"
+cmake --build --preset "$PROFILE" ${build_args[@]+"${build_args[@]}"}
 if [[ "$PROFILE" != wasm-* && "$PROFILE" != ios-* ]]; then
   test_args=()
   if $IS_MULTI_CONFIG; then test_args+=(-C Release); fi
-  ctest --test-dir "$ROOT/.cmake-build/$PROFILE" --output-on-failure "${test_args[@]}"
+  ctest --test-dir "$ROOT/.cmake-build/$PROFILE" --output-on-failure ${test_args[@]+"${test_args[@]}"}
 fi

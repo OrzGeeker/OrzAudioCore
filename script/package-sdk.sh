@@ -42,7 +42,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/native" "$STAGE/metadata" "$STAGE/licenses" "$STAGE/bin"
 install_args=(--prefix "$STAGE/native")
 if $IS_MULTI_CONFIG; then install_args+=(--config Release); fi
-cmake --install "$ROOT/.cmake-build/$PRESET" "${install_args[@]}"
+cmake --install "$ROOT/.cmake-build/$PRESET" ${install_args[@]+"${install_args[@]}"}
 probe=""
 for candidate in \
   "$ROOT/.cmake-build/$PRESET/orz_artifact_probe" \
@@ -65,6 +65,6 @@ if [[ "${ORZ_SKIP_VERIFY:-0}" != "1" ]]; then
   if find "$STAGE/bin" -maxdepth 1 -name 'orz_artifact_probe*' -type f -perm -u+x | grep -q .; then
     probe_args+=(--run-probe)
   fi
-  node "$ROOT/script/verify-artifact.mjs" "$STAGE.tar.gz" "${probe_args[@]}"
+  node "$ROOT/script/verify-artifact.mjs" "$STAGE.tar.gz" ${probe_args[@]+"${probe_args[@]}"}
 fi
 echo "$STAGE.tar.gz"
