@@ -321,6 +321,7 @@ jobs:
     needs: [native, windows-lite, windows-full, server, web, apple, android, conformance-compare]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: {path: release, merge-multiple: true}
       - name: Verify every asset and generate a lockfile
