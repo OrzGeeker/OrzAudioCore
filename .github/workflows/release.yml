@@ -17,12 +17,19 @@ jobs:
       - name: Verify tag and manifest version
         run: node script/check-release-readiness.mjs "${GITHUB_REF_NAME#v}"
       - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh builtin-lite "$RUNNER_TEMP/release"
+      - run: node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
+      - run: >-
+          node script/run-conformance.mjs
+          --binary .cmake-build/builtin-lite/orz_conformance
+          --out "$RUNNER_TEMP/conformance/linux-x86_64-lite"
+          --platform linux-x86_64-lite --formats ym,mid,bp
       - uses: actions/upload-artifact@v4
         with:
           name: native
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/conformance/
 
   server:
     strategy:
@@ -81,12 +88,12 @@ jobs:
         run: npm install && npm run build && npm test
       - run: node script/verify-web-release.mjs
       - run: ./script/package-web-sdk.sh "$RUNNER_TEMP/release"
-      - run: node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
+      - run: node script/fetch-conformance-fixtures.mjs
       - run: >-
           node script/run-conformance-web.mjs
-          --module SDK/Web/wasm/orz_audio_builtin.mjs
-          --wasm SDK/Web/wasm/orz_audio_builtin.wasm
-          --out "$RUNNER_TEMP/conformance" --platform web --formats ym,mid,bp
+          --module SDK/Web/wasm/orz_audio.mjs
+          --wasm SDK/Web/wasm/orz_audio.wasm
+          --out "$RUNNER_TEMP/conformance" --platform web
       - uses: actions/upload-artifact@v4
         with:
           name: web
@@ -167,8 +174,66 @@ jobs:
             ${{ runner.temp }}/release/*.aar
             ${{ runner.temp }}/release/*.aar.sha256
 
+  windows-lite:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - name: Package Windows lite SDK
+        shell: bash
+        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh builtin-lite "$RUNNER_TEMP/release"
+      - name: Lite conformance on Windows
+        shell: bash
+        run: |
+          node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
+          node script/run-conformance.mjs --binary .cmake-build/builtin-lite/Release/orz_conformance.exe             --out "$RUNNER_TEMP/conformance/windows-x86_64" --platform windows-x86_64 --formats ym,mid,bp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            ${{ runner.temp }}/release/*.tar.gz
+            ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/conformance/
+
+  conformance-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27b
+          link-to-sdk: true
+      - uses: actions/cache@v4
+        with:
+          path: .wasm-build/cache
+          key: orz-decoder-sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('script/fetch-decoder-sources.sh') }}
+      - run: ./script/fetch-decoder-sources.sh
+      - name: Build x86_64 conformance probe
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          JOBS: "4"
+        run: ./script/build-android-conformance.sh
+      - run: node script/fetch-conformance-fixtures.mjs
+      - name: Run on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          disable-animations: true
+          script: ./script/run-conformance-android.sh --out conformance/android-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-android
+          path: conformance/
+
   conformance-compare:
-    needs: [server, apple]
+    needs: [native, windows-lite, server, apple, web, conformance-android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -176,10 +241,17 @@ jobs:
         with: {pattern: "server-*", path: conformance, merge-multiple: true}
       - uses: actions/download-artifact@v4
         with: {pattern: apple, path: conformance, merge-multiple: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: web, path: conformance, merge-multiple: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: conformance-android, path: conformance, merge-multiple: true}
       - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
+      - run: node script/compare-conformance.mjs conformance/linux-x86_64-lite conformance/windows-x86_64 --allow-pcm-drift
+      - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/web --allow-pcm-drift
+      - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/android-x86_64 --allow-pcm-drift
 
   publish:
-    needs: [native, server, web, apple, android, conformance-compare]
+    needs: [native, windows-lite, server, web, apple, android, conformance-compare]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4

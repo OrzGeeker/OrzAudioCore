@@ -1,9 +1,9 @@
 # Windows status
 
-Windows is **not** release-verified yet. The C ABI and `builtin-lite` sources
-are portable C11, and CMake can produce a static library with MSVC or clang-cl,
-but the full-profile build scripts are POSIX (autotools + bash) and no Windows
-CI job exists.
+Windows x86_64 now has an official **builtin-lite** release artifact and CI:
+`OrzAudioCore-<ver>-windows-x86_64-builtin-lite.tar.gz` (MSVC, static library,
+`ym`/`mid`/`bp`). The full profile is still built with POSIX autotools and is not
+released for Windows; use Web/WASM or the server for the other 20 formats.
 
 ## What works today
 
@@ -19,7 +19,13 @@ CI job exists.
 - Web/WASM and server decoding remain the recommended Windows playback path
   until a native full profile is published.
 
-## Gaps for a supported Windows release
+## Verified in CI
+
+`windows-lite` builds with MSVC, runs the ABI/consumer tests, packages the SDK,
+runs the lite conformance probe and compares its PCM against the Linux lite
+build (with bounded float drift).
+
+## Gaps for a Windows full-profile release
 
 1. Build the nine decoder archives with MSVC/clang-cl (or vcpkg) and add a
    `windows-x86_64` CMake preset with `ORZ_NATIVE_LIB`.

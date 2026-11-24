@@ -1066,6 +1066,7 @@ STUBC
         -include "$PROJECT_DIR/Libraries/OrzAudioKit/thirdparty/ahx2play/mixer_stubs.h" \
         -D ORZ_HAVE_OPENMPT \
         -D ORZ_HAVE_GME \
+        -D ORZ_PROFILE_ID=1 \
         -s WASM=1 \
         -s MODULARIZE=1 \
         -s EXPORT_NAME="OrzAudioKit" \
@@ -1082,6 +1083,29 @@ STUBC
 
     log "WASM module created:"
     ls -lh "$OUTPUT_DIR/orz_audio.wasm" "$OUTPUT_DIR/orz_audio.js" 2>/dev/null || true
+
+    # ESM projection of the same full binary for Node/bundler consumers and
+    # the conformance runner. The .wasm payload is identical.
+    emcc "${source_files[@]}" "${libs[@]}" \
+        $inc_flags \
+        -include "$PROJECT_DIR/Libraries/OrzAudioKit/thirdparty/ahx2play/mixer_stubs.h" \
+        -D ORZ_HAVE_OPENMPT \
+        -D ORZ_HAVE_GME \
+        -D ORZ_PROFILE_ID=1 \
+        -s WASM=1 \
+        -s MODULARIZE=1 \
+        -s EXPORT_ES6=1 \
+        -s ENVIRONMENT='web,worker,node' \
+        -s EXPORT_NAME="OrzAudioCoreModule" \
+        -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "getValue", "setValue", "UTF8ToString", "stringToUTF8", "lengthBytesUTF8", "HEAPU8", "HEAPU32", "HEAP32", "HEAPF32", "HEAPF64"]' \
+        -s EXPORTED_FUNCTIONS='["_orz_load", "_orz_get_duration", "_orz_get_sample_rate", "_orz_get_channels", "_orz_render", "_orz_destroy", "_orz_decoder_create", "_orz_decoder_get_duration", "_orz_decoder_get_sample_rate", "_orz_decoder_get_channels", "_orz_decoder_render", "_orz_decoder_destroy", "_orz_decoder_get_subsong_count", "_orz_decoder_select_subsong", "_orz_decoder_seek_ms", "_orz_audio_can_decode", "_orz_abi_version", "_orz_build_info", "_orz_status_message", "_orz_get_format_count", "_orz_get_format_info", "_orz_probe", "_orz_decoder_create_memory", "_orz_decoder_get_stream_info", "_orz_decoder_render_f32", "_orz_decoder_seek", "_orz_decoder_select_subsong_v1", "_orz_decoder_reset", "_orz_decoder_cancel", "_orz_decoder_destroy_v1", "_malloc", "_free"]' \
+        -s INITIAL_MEMORY=268435456 \
+        -s ALLOW_MEMORY_GROWTH=0 \
+        -s DISABLE_EXCEPTION_CATCHING=0 \
+        -D __stdcall= \
+        -D '__int64=long long' \
+        --no-entry -O3 \
+        -o "$OUTPUT_DIR/orz_audio.mjs"
 }
 
 # Small dependency-free bundle for formats implemented entirely in this tree.
@@ -1100,6 +1124,7 @@ generate_builtin_wrapper() {
         "$ORZ_SRC/midi/midi_impl.c" \
         "$ORZ_SRC/stub_decoders.c" \
         -I"$ORZ_SRC/include" \
+        -D ORZ_PROFILE_ID=0 \
         -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="OrzAudioKit" \
         -s EXPORTED_RUNTIME_METHODS='["stringToUTF8", "lengthBytesUTF8", "HEAPU8", "HEAPU32", "HEAPF32", "HEAPF64"]' \
         -s EXPORTED_FUNCTIONS='["_orz_decoder_create", "_orz_decoder_get_duration", "_orz_decoder_get_sample_rate", "_orz_decoder_get_channels", "_orz_decoder_render", "_orz_decoder_destroy", "_orz_decoder_get_subsong_count", "_orz_decoder_select_subsong", "_orz_decoder_seek_ms", "_orz_audio_can_decode", "_orz_abi_version", "_orz_build_info", "_orz_status_message", "_orz_get_format_count", "_orz_get_format_info", "_orz_probe", "_orz_decoder_create_memory", "_orz_decoder_get_stream_info", "_orz_decoder_render_f32", "_orz_decoder_seek", "_orz_decoder_select_subsong_v1", "_orz_decoder_reset", "_orz_decoder_cancel", "_orz_decoder_destroy_v1", "_malloc", "_free"]' \

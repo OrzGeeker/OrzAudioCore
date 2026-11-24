@@ -157,7 +157,7 @@ try {
 
   let runtime = null;
   if (runProbe) {
-    const probe = walk(root).find(file => path.basename(file) === 'orz_artifact_probe');
+    const probe = walk(root).find(file => /^orz_artifact_probe(\.exe)?$/.test(path.basename(file)));
     if (!probe) {
       if (requireProbe) fail('artifact has no orz_artifact_probe');
     } else {

@@ -133,6 +133,8 @@ typedef struct {
     float last[16];
     size_t first_count;
     size_t last_count;
+    float checkpoints[8][4];
+    size_t checkpoint_count;
 } PcmSummary;
 
 static void pcm_init(PcmSummary *summary) {
@@ -142,6 +144,15 @@ static void pcm_init(PcmSummary *summary) {
 }
 
 static void pcm_append(PcmSummary *summary, const float *pcm, uint32_t frames, uint32_t channels) {
+    // Sampled checkpoints let the cross-platform comparator measure float
+    // drift without shipping the whole PCM stream in the JSON report.
+    if (summary->checkpoint_count < 8 && summary->frames % 4096u == 0u) {
+        size_t count = (size_t)frames * channels;
+        if (count > 4) count = 4;
+        for (size_t index = 0; index < count; ++index)
+            summary->checkpoints[summary->checkpoint_count][index] = pcm[index];
+        summary->checkpoint_count++;
+    }
     for (uint32_t frame = 0; frame < frames; ++frame) {
         for (uint32_t channel = 0; channel < channels; ++channel) {
             float value = pcm[frame * channels + channel];
@@ -181,6 +192,12 @@ static void pcm_body(const PcmSummary *summary) {
     for (size_t i = 0; i < summary->first_count; ++i) printf("%s%.9g", i ? ", " : "", summary->first[i]);
     printf("], \"last\": [");
     for (size_t i = 0; i < summary->last_count; ++i) printf("%s%.9g", i ? ", " : "", summary->last[i]);
+    printf("], \"checkpoints\": [");
+    for (size_t c = 0; c < summary->checkpoint_count; ++c) {
+        printf("%s[", c ? ", " : "");
+        for (size_t i = 0; i < 4; ++i) printf("%s%.9g", i ? ", " : "", summary->checkpoints[c][i]);
+        printf("]");
+    }
     printf("]}");
 }
 
@@ -333,6 +350,33 @@ int main(int argc, char **argv) {
         printf("}");
     }
     printf("]");
+
+    /* Lifecycle: repeated create/render/destroy must not leak or drift. */
+    printf(",\n  \"lifecycle\": [");
+    for (int cycle = 0; cycle < 4; ++cycle) {
+        OrzDecoderHandle *instance = NULL;
+        orz_status cycle_status = create_decoder(data, size, format, subsong, &instance);
+        if (cycle_status == ORZ_OK) {
+            float scratch[8] = {0};
+            uint32_t rendered = 0;
+            cycle_status = orz_decoder_render_f32(instance, scratch, 1, &rendered);
+            orz_decoder_destroy_v1(instance);
+        }
+        printf("%s%d", cycle ? ", " : "", (int)cycle_status);
+    }
+    printf("]");
+
+    /* Out-of-range seek is reported separately; platforms may clamp or reject. */
+    {
+        OrzDecoderHandle *seek_handle = NULL;
+        orz_status seek_status = create_decoder(data, size, format, subsong, &seek_handle);
+        if (seek_status == ORZ_OK) {
+            uint64_t beyond = (uint64_t)(info.duration_seconds * 1000.0) + 60000u;
+            seek_status = orz_decoder_seek(seek_handle, beyond);
+            orz_decoder_destroy_v1(seek_handle);
+        }
+        printf(",\n  \"seekOutOfRange\": {\"status\": %d}", (int)seek_status);
+    }
 
     /* Cancel semantics: a fresh handle must refuse to render after cancel. */
     OrzDecoderHandle *cancel = NULL;

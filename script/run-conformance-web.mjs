@@ -29,7 +29,8 @@ const platform = option('--platform', 'web');
 const frames = Number(option('--frames', '8192'));
 const maxSeconds = Number(option('--max-seconds', '30'));
 const fixtures = path.resolve(option('--fixtures', process.env.ORZ_CONFORMANCE_FIXTURES ?? path.join(root, 'Tests/conformance/fixtures')));
-const wanted = new Set((option('--formats', 'ym,mid,bp') || '').split(',').filter(Boolean));
+const wanted = new Set((option('--formats', '') || '').split(',').filter(Boolean));
+if (!wanted.size) for (const entry of manifest.formats) if (entry.path) wanted.add(entry.format);
 
 if (!fs.existsSync(modulePath) || !fs.existsSync(wasmPath)) {
   throw new Error(`missing WASM assets: ${modulePath} / ${wasmPath}`);
@@ -44,11 +45,15 @@ const info = buildInfo(module);
 function summarize(decoder) {
   const channels = decoder.info.channels || 1;
   const pcmParts = [];
+  const checkpoints = [];
   let renderedFrames = 0;
   const maxFrames = Math.min(frames, Math.max(1, Math.floor((decoder.info.duration || 0) * (decoder.info.sampleRate || 44100))), (decoder.info.sampleRate || 44100) * maxSeconds);
   while (renderedFrames < maxFrames) {
     const chunk = decoder.render(Math.min(2048, maxFrames - renderedFrames));
     if (chunk.length === 0) break;
+    if (checkpoints.length < 8 && renderedFrames % 4096 === 0) {
+      checkpoints.push([...chunk.slice(0, 4)]);
+    }
     pcmParts.push(chunk);
     renderedFrames += chunk.length / channels;
   }
@@ -69,6 +74,7 @@ function summarize(decoder) {
     maxAbs,
     first: [...pcm.slice(0, Math.min(16, pcm.length))],
     last: [...pcm.slice(Math.max(0, pcm.length - 16))],
+    checkpoints,
   };
 }
 
@@ -113,6 +119,22 @@ for (const entry of manifest.formats) {
         } finally { sub.close(); }
       }
     }
+    report.lifecycle = [];
+    for (let cycle = 0; cycle < 4; cycle++) {
+      const instance = createDecoder(module, data, entry.format);
+      try { instance.render(1); report.lifecycle.push(0); }
+      catch (error) { report.lifecycle.push(error.status ?? -7); }
+      finally { instance.close(); }
+    }
+    try {
+      const seekHandle = createDecoder(module, data, entry.format);
+      seekHandle.seek(Math.floor(((stream.duration || 0) + 60) * 1000));
+      report.seekOutOfRange = { status: 0 };
+      seekHandle.close();
+    } catch (error) {
+      report.seekOutOfRange = { status: error.status ?? -7 };
+    }
+
     const cancel = createDecoder(module, data, entry.format);
     cancel.cancel();
     try {

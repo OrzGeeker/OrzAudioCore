@@ -8,9 +8,16 @@ case "$PROFILE" in
   *) echo "Unknown SDK preset: $PROFILE" >&2; exit 2 ;;
 esac
 
+IS_MULTI_CONFIG=false
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_MULTI_CONFIG=true ;; esac
+
 node "$ROOT/script/generate-decoder-manifest.mjs" --check
 cmake --preset "$PROFILE" -S "$ROOT"
-cmake --build --preset "$PROFILE"
+build_args=()
+if $IS_MULTI_CONFIG; then build_args+=(--config Release); fi
+cmake --build --preset "$PROFILE" "${build_args[@]}"
 if [[ "$PROFILE" != wasm-* && "$PROFILE" != ios-* ]]; then
-  ctest --test-dir "$ROOT/.cmake-build/$PROFILE" --output-on-failure
+  test_args=()
+  if $IS_MULTI_CONFIG; then test_args+=(-C Release); fi
+  ctest --test-dir "$ROOT/.cmake-build/$PROFILE" --output-on-failure "${test_args[@]}"
 fi
