@@ -13,6 +13,7 @@ jobs:
         with: {node-version: 22}
       - run: node script/check-release-readiness.mjs
       - run: node script/generate-decoder-manifest.mjs --check
+      - run: node --test script/lib/manifest.test.mjs
       - run: cmake --preset builtin-lite
       - run: cmake --build --preset builtin-lite
       - run: ctest --test-dir .cmake-build/builtin-lite --output-on-failure
@@ -21,6 +22,50 @@ jobs:
       - run: cmake -S Tests/SDK/consumer -B "$RUNNER_TEMP/consumer" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/orzcore"
       - run: cmake --build "$RUNNER_TEMP/consumer"
       - run: "$RUNNER_TEMP/consumer/consumer"
+
+  windows-lite:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: node script/check-release-readiness.mjs
+      - run: cmake -S . -B build -DORZ_PROFILE=builtin-lite -DORZ_BUILD_TESTS=ON
+      - run: cmake --build build --config Release
+      - run: ctest --test-dir build -C Release --output-on-failure
+
+  conformance-lite:
+    strategy:
+      matrix:
+        include:
+          - {os: macos-15, platform: macos-arm64}
+          - {os: ubuntu-24.04, platform: linux-x86_64}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: cmake --preset builtin-lite
+      - run: cmake --build --preset builtin-lite
+      - run: node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
+      - run: >-
+          node script/run-conformance.mjs
+          --binary .cmake-build/builtin-lite/orz_conformance
+          --out conformance --platform ${{ matrix.platform }}
+          --formats ym,mid,bp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-lite-${{ matrix.platform }}
+          path: conformance/
+
+  conformance-compare:
+    needs: conformance-lite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {pattern: conformance-lite-*, path: conformance, merge-multiple: true}
+      - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
 
   sanitizer-lite:
     runs-on: ubuntu-24.04
@@ -56,6 +101,15 @@ jobs:
       - run: cmake -S Tests/SDK/consumer -B "$RUNNER_TEMP/consumer" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/orzcore"
       - run: cmake --build "$RUNNER_TEMP/consumer"
       - run: DYLD_LIBRARY_PATH="$RUNNER_TEMP/orzcore/lib" "$RUNNER_TEMP/consumer/consumer"
+      - run: node script/fetch-conformance-fixtures.mjs
+      - run: >-
+          node script/run-conformance.mjs
+          --binary .cmake-build/${{ steps.host.outputs.preset }}/orz_conformance
+          --out conformance --platform macos-arm64 --require-all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-full-macos
+          path: conformance/
 
   web-binding:
     runs-on: ubuntu-24.04

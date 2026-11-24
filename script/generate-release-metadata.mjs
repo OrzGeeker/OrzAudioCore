@@ -2,38 +2,38 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { buildInfo, loadManifest, repoRoot, sbom } from './lib/manifest.mjs';
 
-const stage = process.argv[2];
-if (!stage) throw new Error('usage: generate-release-metadata.mjs <staging-directory>');
-const root = path.resolve(import.meta.dirname, '..');
-const manifest = JSON.parse(fs.readFileSync(path.join(root, 'decoder-manifest.json'), 'utf8'));
-const packages = new Map();
-for (const format of manifest.formats) {
-  packages.set(`${format.decoder}@${format.version}`, {
-    name: format.decoder,
-    version: format.version,
-    formats: []
-  });
-  packages.get(`${format.decoder}@${format.version}`).formats.push(format.id);
+function usage() {
+  throw new Error('usage: generate-release-metadata.mjs <staging-directory> [--profile <name>] [--platform <name>]');
 }
-const sbom = {
-  bomFormat: 'CycloneDX',
-  specVersion: '1.5',
-  version: 1,
-  metadata: { component: { type: 'library', name: 'OrzAudioCore', version: manifest.sdkVersion } },
-  components: [...packages.values()].map(({formats, ...component}) => ({
-    type: 'library',
-    ...component,
-    properties: [{name: 'orz:formats', value: formats.join(',')}]
-  }))
-};
-fs.writeFileSync(path.join(stage, 'metadata', 'sbom.cdx.json'), `${JSON.stringify(sbom, null, 2)}\n`);
-fs.writeFileSync(path.join(stage, 'metadata', 'build-info.json'), `${JSON.stringify({
+
+const args = process.argv.slice(2);
+const stage = args.shift();
+if (!stage) usage();
+let profile = 'full';
+let platform = 'unknown';
+while (args.length) {
+  const flag = args.shift();
+  if (flag === '--profile') profile = args.shift();
+  else if (flag === '--platform') platform = args.shift();
+  else usage();
+}
+
+const manifest = loadManifest(path.join(repoRoot, 'decoder-manifest.json'));
+const info = buildInfo(manifest, profile);
+const metadata = path.join(stage, 'metadata');
+fs.mkdirSync(metadata, { recursive: true });
+fs.writeFileSync(path.join(metadata, 'decoder-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+fs.writeFileSync(path.join(metadata, 'build-info.json'), `${JSON.stringify(info, null, 2)}\n`);
+fs.writeFileSync(path.join(metadata, 'sbom.cdx.json'), `${JSON.stringify(sbom(manifest), null, 2)}\n`);
+fs.writeFileSync(path.join(metadata, 'artifact.json'), `${JSON.stringify({
   sdkVersion: manifest.sdkVersion,
   abiVersion: manifest.abiVersion,
+  profile,
+  platform,
+  cacheNamespace: info.cacheNamespace,
   generatedAt: process.env.SOURCE_DATE_EPOCH
     ? new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString()
     : new Date().toISOString(),
-  decoderCount: packages.size,
-  formatCount: manifest.formats.length
 }, null, 2)}\n`);

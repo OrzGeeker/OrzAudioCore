@@ -1,9 +1,24 @@
 {
   "name": "@orzmusic/audio-core",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "type": "module",
   "exports": {
-    ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "import": "./dist/worker.js"
+    },
+    "./worklet": {
+      "types": "./dist/worklet.d.ts",
+      "import": "./dist/worklet.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js"
+    },
     "./wasm/orz_audio.js": "./wasm/orz_audio.js",
     "./wasm/orz_audio.wasm": "./wasm/orz_audio.wasm",
     "./wasm/orz_audio_builtin.mjs": "./wasm/orz_audio_builtin.mjs",
@@ -11,7 +26,19 @@
     "./wasm/orz_audio_builtin.wasm": "./wasm/orz_audio_builtin.wasm",
     "./decoder-manifest.json": "./decoder-manifest.json"
   },
-  "files": ["dist", "wasm", "decoder-manifest.json"],
-  "scripts": {"build": "tsc -p tsconfig.json", "test": "node --test test/*.test.mjs"},
-  "devDependencies": {"typescript": "^5.6.0"}
+  "files": [
+    "dist",
+    "wasm",
+    "decoder-manifest.json",
+    "metadata",
+    "licenses",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
 }

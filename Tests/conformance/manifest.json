@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "corpus": {
+    "repository": "https://github.com/6512345/keygenmusic",
+    "commit": "8b57692adc78fc5a3ff702d6f151ef10c0cad175",
+    "license": "KeyGen Music archive; fixtures are fetched, not redistributed by OrzAudioCore"
+  },
+  "formats": [
+    {"format":"xm","path":"KEYGENMUSiC MusicPack/MP2K/MP2K - FirmTools Album Creator Pro 3.x crk.xm","sha256":"d935f1b1fbd84e9b15439d2abaab9e84db95c71d62bebf87b51136bfd5d935c5"},
+    {"format":"mod","path":"KEYGENMUSiC MusicPack/MP2K/MP2K - UltraEdit11.x crk.mod","sha256":"24857a797af4482f33844bc96dce759a6ebdfde9d02243fa334f208dcc366e4e"},
+    {"format":"it","path":"KEYGENMUSiC MusicPack/MP2K/MP2K - Babylon Pro 5.x crk.it","sha256":"10e75bb484db33e0e8eb5ebe7a5de45eed8d47d0dbebc06b0eddf90b19bead76"},
+    {"format":"s3m","path":"KEYGENMUSiC MusicPack/TECHNIC/TECHNIC - Onimusha(c) installer.s3m","sha256":"b74ac418b93284d6d7d21e66bc1d89e914bf7dd0984d2a9a206940b9e63a6956"},
+    {"format":"mo3","path":"KEYGENMUSiC MusicPack/AGAiN/AGAiN - FlashGet kg_original.mo3","sha256":"13eea8b860e4a577d3007d69e50a0b45c4937e5929bbc4401a546288b5002426"},
+    {"format":"mtm","path":"KEYGENMUSiC MusicPack/IREC/IREC - Telerik Just Mock 2011.1.331 crk.mtm","sha256":"18b91c40bfd5b75dea46c3438fc34cca4e89c0187e9af29239dc8780fcf76c3e"},
+    {"format":"fc13","path":"KEYGENMUSiC MusicPack/AiR/AiR - Sonalksis Bundle kg.fc13","sha256":"d770eae08decc11e80ba5109ace7f3490c8d60060dfd268d459350bbd2dbe490"},
+    {"format":"fc14","path":"KEYGENMUSiC MusicPack/H2O/H2O - WaveArts Power Suite kg.fc14","sha256":"94b859375a8fb74222038ddc81f7d51da0b472f576a7b450080fb98b969d5f2f"},
+    {"format":"nsf","path":"KEYGENMUSiC MusicPack/RU-BOARD/Ru-Board - ACDSee Ultimate crk.nsf","sha256":"f952e28344225ffcb755b516bcedd6ad90c4499eaf30628907cedfb44553fac6"},
+    {"format":"spc","path":"KEYGENMUSiC MusicPack/RU-BOARD/Ru-Board - Nero 15 Platinum 16.0.02900 crk.spc","sha256":"434a10ca65a18518bd7838b2623c7f945fa268af1d25bc083c06e171cc350cd1"},
+    {"format":"sid","path":"KEYGENMUSiC MusicPack/RU-BOARD/RU-BOARD - AOMEI Backupper Professinal 2.0 crk.sid","sha256":"3973d291acdce9399284ddd82ac0895e6cb3db4ac371f04dc52c23a4e9175ef6","notes":"PSID only; RSID ROMs are not bundled"},
+    {"format":"sc68","path":"KEYGENMUSiC MusicPack/LEGEND/LEGEND - Dynamite Dick intro_1.sc68","sha256":"ab45634c4aecd69efc4a16b80ce7da3e5c6a046dfdd81007c01a4a09ac5263ea"},
+    {"format":"ym","path":"KEYGENMUSiC MusicPack/Solitary/Solitary - PDF Explorer crk.ym","sha256":"a801f22a48314f8c76fc3387e581fd5d99345cef1a5e555353da92531db2e8fc"},
+    {"format":"sap","path":"KEYGENMUSiC MusicPack/TorbyTorrents/TorbyTorrents - 8BitBoy intro.sap","sha256":"1069a242f306562670399179c623b28db880d080da64364d35484a1675227e6e"},
+    {"format":"ahx","path":"KEYGENMUSiC MusicPack/Under SEH/Under SEH - MP3 Splitter Joiner Pro 3.9b2398 crk.ahx","sha256":"c5468071e1a39213e2eb7c6c074e30d0d41604c1ebc0da2168d98a1f72b29d02"},
+    {"format":"thx","path":null,"skipReason":"no .thx fixture in the pinned corpus; ahx covers the same ahx2play decoder"},
+    {"format":"mid","path":"KEYGENMUSiC MusicPack/GZKS/GZKS - GreenBox LogoMaker 1.2 crk.mid","sha256":"59b6e8e5c8be7307124b7a40c9bdf42c8734d87581943bd95a06828d1e9f9a90"},
+    {"format":"v2m","path":"KEYGENMUSiC MusicPack/Under SEH/Under SEH - MLDownloader 7.1.0.9 crk.v2m","sha256":"4c033465e98d3e0a3ee7060a4d7cfc101e21c57ffca51473ee1f2cea447e5264"},
+    {"format":"bp","path":"KEYGENMUSiC MusicPack/EDGE/EDGE - Symantec Norton Antibot 1.0 kg.bp","sha256":"b0ca097784c56d884285c6c9f436033ed00f56238531f95f4453408e2087d72e"},
+    {"format":"rad","path":"KEYGENMUSiC MusicPack/TorbyTorrents/TorbyTorrents - Rune Gold trn.rad","sha256":"eec9589ad38e776456ecf56d7f93b23c81fb88706f7f0d4d221d28a828e15de4"},
+    {"format":"d00","path":"KEYGENMUSiC MusicPack/TorbyTorrents/TorbyTorrents - Adobe Flash CS3 crk.d00","sha256":"f452fda5d5cf758b3e80c1c4a2cbd9a3d37c9b7b4f17afdd2e32395ae4bfa785"},
+    {"format":"hsc","path":"KEYGENMUSiC MusicPack/LEGEND/LEGEND - Dark Legions intro.hsc","sha256":"9d7c8ca5ae6c34dd8e5e084e1218547e0299da3bbe676e6d02ad7eb4c4bedf04"},
+    {"format":"amd","path":"KEYGENMUSiC MusicPack/TorbyTorrents/TorbyTorrents - CrackMe 2015 v3.amd","sha256":"33981a9b8cc762dfd27fafd639c952acb2d7ed800dc2f85259426e24bfab12cb"}
+  ]
+}

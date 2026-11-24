@@ -25,16 +25,16 @@
 #define THRESHOLD   3
 
 /* Bit I/O */
-static const unsigned char *inp;
+static const unsigned char *src_ptr;
 static int inpos, insize;
-static unsigned char *outp;
+static unsigned char *dst_ptr;
 static int outpos;
 static unsigned short bitbuf;
 static unsigned int subbitbuf;
 static int bitcount;
 
 static int read_byte(void) {
-    return (inpos < insize) ? inp[inpos++] : 0;
+    return (inpos < insize) ? src_ptr[inpos++] : 0;
 }
 
 static void fillbuf(int n) {
@@ -266,10 +266,10 @@ static int legacy_ym_lzh_decompress(const unsigned char *compressed, int compres
     if (!compressed || compressed_len <= 0 || !decompressed || decompressed_len <= 0)
         return -1;
 
-    inp = compressed;
+    src_ptr = compressed;
     inpos = 0;
     insize = compressed_len;
-    outp = decompressed;
+    dst_ptr = decompressed;
     outpos = 0;
 
     unsigned char *window = (unsigned char *)calloc(DICSIZ, 1);
@@ -284,7 +284,7 @@ static int legacy_ym_lzh_decompress(const unsigned char *compressed, int compres
         int chunk = (remaining > (int)DICSIZ) ? (int)DICSIZ : remaining;
         int n = decode(chunk, window);
         if (n > 0) {
-            memcpy(outp + outpos, window, n);
+            memcpy(dst_ptr + outpos, window, n);
             outpos += n;
             remaining -= n;
         }

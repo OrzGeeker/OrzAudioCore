@@ -36,6 +36,17 @@
       }
     },
     {
+      "name": "macos-arm64-full",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "ORZ_PROFILE": "full",
+        "ORZ_BUILD_SHARED": "OFF",
+        "ORZ_BUILD_TESTS": "OFF"
+      }
+    },
+    {
       "name": "ios-device-lite",
       "inherits": "base",
       "cacheVariables": {
@@ -48,6 +59,19 @@
       }
     },
     {
+      "name": "ios-device-full",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "15.0",
+        "ORZ_PROFILE": "full",
+        "ORZ_BUILD_SHARED": "OFF",
+        "ORZ_BUILD_TESTS": "OFF"
+      }
+    },
+    {
       "name": "ios-simulator-lite",
       "inherits": "base",
       "cacheVariables": {
@@ -56,6 +80,19 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
         "CMAKE_OSX_DEPLOYMENT_TARGET": "15.0",
         "ORZ_PROFILE": "builtin-lite",
+        "ORZ_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "ios-simulator-full",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphonesimulator",
+        "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "15.0",
+        "ORZ_PROFILE": "full",
+        "ORZ_BUILD_SHARED": "OFF",
         "ORZ_BUILD_TESTS": "OFF"
       }
     },
@@ -182,6 +219,18 @@
     {
       "name": "android-x86_64",
       "configurePreset": "android-x86_64"
+    },
+    {
+      "name": "macos-arm64-full",
+      "configurePreset": "macos-arm64-full"
+    },
+    {
+      "name": "ios-device-full",
+      "configurePreset": "ios-device-full"
+    },
+    {
+      "name": "ios-simulator-full",
+      "configurePreset": "ios-simulator-full"
     }
   ]
 }

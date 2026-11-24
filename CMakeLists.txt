@@ -1,8 +1,17 @@
 cmake_minimum_required(VERSION 3.21)
-project(OrzAudioCore VERSION 1.3.1 LANGUAGES C CXX)
+project(OrzAudioCore VERSION 1.4.0 LANGUAGES C CXX)
 
 set(ORZ_PROFILE "full" CACHE STRING "Decoder profile: builtin-lite, full, server")
 set_property(CACHE ORZ_PROFILE PROPERTY STRINGS builtin-lite full server)
+if(ORZ_PROFILE STREQUAL "builtin-lite")
+    set(ORZ_PROFILE_ID 0)
+elseif(ORZ_PROFILE STREQUAL "full")
+    set(ORZ_PROFILE_ID 1)
+elseif(ORZ_PROFILE STREQUAL "server")
+    set(ORZ_PROFILE_ID 2)
+else()
+    message(FATAL_ERROR "Unknown ORZ_PROFILE: ${ORZ_PROFILE}")
+endif()
 option(ORZ_BUILD_SHARED "Build a shared OrzAudioCore library" OFF)
 option(ORZ_BUILD_TESTS "Build ABI consumer tests" ON)
 
@@ -48,7 +57,7 @@ add_library(OrzAudioCore::OrzAudioCore ALIAS OrzAudioCore)
 target_include_directories(OrzAudioCore
     PUBLIC $<BUILD_INTERFACE:${ORZ_SOURCE}/include> $<INSTALL_INTERFACE:include>
     PRIVATE ${ORZ_SOURCE}/dispatch ${ORZ_THIRDPARTY})
-target_compile_definitions(OrzAudioCore PRIVATE ORZ_AUDIO_CORE_BUILD=1)
+target_compile_definitions(OrzAudioCore PRIVATE ORZ_AUDIO_CORE_BUILD=1 ORZ_PROFILE_ID=${ORZ_PROFILE_ID})
 if(ORZ_BUILD_SHARED AND UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     target_link_options(OrzAudioCore PRIVATE
         "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/orz-audio-core.map")
@@ -59,6 +68,10 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     # Builtin MIDI and BP synthesis use libm. Keep it a transitive dependency
     # because consumers may link the static OrzAudioCore archive.
     target_link_libraries(OrzAudioCore PUBLIC m)
+endif()
+if(MSVC)
+    # stdatomic.h is opt-in on MSVC; orz_dispatch.c uses atomic_int for cancel.
+    target_compile_options(OrzAudioCore PRIVATE /experimental:c11atomics)
 endif()
 if(ANDROID)
     # Android 15+ 支持 16KB 页;Play 要求新提交的 native 库按 16KB 对齐。
@@ -118,4 +131,12 @@ if(ORZ_BUILD_TESTS)
     add_executable(orz_parallel_conformance Tests/SDK/parallel_conformance.c)
     target_link_libraries(orz_parallel_conformance PRIVATE OrzAudioCore::OrzAudioCore)
     add_test(NAME orz_parallel_conformance COMMAND orz_parallel_conformance)
+    add_executable(orz_artifact_probe Tests/SDK/artifact_probe.c)
+    target_link_libraries(orz_artifact_probe PRIVATE OrzAudioCore::OrzAudioCore)
+    add_test(NAME orz_artifact_probe COMMAND orz_artifact_probe --self-check)
+    add_executable(orz_conformance Tests/conformance/conformance.c)
+    target_link_libraries(orz_conformance PRIVATE OrzAudioCore::OrzAudioCore)
+    if(UNIX)
+        target_link_libraries(orz_conformance PRIVATE m)
+    endif()
 endif()

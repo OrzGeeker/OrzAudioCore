@@ -18,7 +18,15 @@ OrzAudioCore 是 OrzMusic 下沉的跨平台解码边界。SDK 只负责格式�
 node script/generate-decoder-manifest.mjs
 ```
 
-CI 使用 `--check` 阻止提交过期的注册表或 build info。`orz_build_info()` 返回 SDK semver、ABI 和缓存 fingerprint；OrzMusic 服务端把 fingerprint 写入 PCM WAV 缓存键。
+CI 使用 `--check` 阻止提交过期的注册表或 build info。`orz_build_info()` 返回向后兼容 JSON：`sdk`、`version`、`abi`、`profile`、
+`fingerprint`、`cacheNamespace`、`formats` 和 `decoders`（id/version）。
+`cacheNamespace = orzaudio-<version>-<profile>-<decoderSetHash>`，其中 hash 由
+profile 的格式 id 与 `decoder@version` 集合做 SHA-256 得到。升级 SDK、切换
+profile 或 decoder 版本变化都会让旧 PCM 缓存自然失效；消费方应把
+`cacheNamespace` 写进缓存键。
+
+制品内的 `metadata/build-info.json` 与运行时 JSON 逐字段一致，
+`script/verify-artifact.mjs --run-probe` 会在发布前做这项比对。
 
 播放策略不属于 SDK。`directFile/wasmDecode/serverDecode` 由 OrzMusic 根据浏览器能力和性能要求决定。
 
@@ -46,21 +54,26 @@ node script/check-release-readiness.mjs
 ./script/package-sdk.sh builtin-lite
 ```
 
-CMake 输出 `OrzAudioCore::OrzAudioCore` target，并可安装公共头文件和 CMake package。Swift 使用 `AudioDecoder`；Web 包使用 `createDecoder()`，负责 WASM 内存和句柄生命周期。
+CMake 输出 `OrzAudioCore::OrzAudioCore` target，并可安装公共头文件和 CMake package。Swift 使用 `AudioDecoder`；Web 包使用 `createDecoder()`，负责 WASM 内存和句柄生命周期；Android AAR 使用 `OrzAudioCore.createDecoder()` 与 `PcmStream`。
 
-Apple 发布包含两类制品：`OrzAudioCore.xcframework.zip` 是 iOS device/simulator
+下游用 schema-v1 lockfile 固定 `version/tag/commit`、每个 profile 的
+`cacheNamespace/formats/decoders` 以及各平台资产的 SHA-256；生成与校验见
+[lockfile.md](lockfile.md) 和 `script/verify-lockfile.mjs`。
+
+Apple 发布两类制品：`OrzAudioCore-<version>-apple-builtin-lite.xcframework.zip` 是 iOS device/simulator
 可直接使用的 dependency-free `builtin-lite` profile；
-`OrzAudioCore-<version>-macos-<arch>.tar.gz` 是包含全部 decoder 的 macOS SDK，
-带 CMake package、公共头文件、manifest、SBOM 与 checksum。制品名称明确区分能力，
-调用端不得把 lite XCFramework 当作 full profile。完整第三方 decoder 的 iOS archive
-仍需完成所有依赖的交叉编译后再纳入 XCFramework。
+`OrzAudioCore-<version>-apple-full.xcframework.zip` 是含全部 decoder 的
+iOS device/simulator + macOS arm64 静态 XCFramework，带 modulemap、manifest、
+build-info、SBOM、licenses 和 checksum，并附生成的 SwiftPM binaryTarget
+`Package.swift`。完整构建流程见 [apple.md](apple.md)。
 
 ## 发布规则
 
 - ABI 破坏性修改：major。
 - 新格式、能力或向后兼容字段：minor。
 - decoder 修复：patch。
-- 每次发布必须附 decoder manifest、第三方许可证、checksum、ABI consumer 结果和 PCM conformance 报告。
+- 每次发布必须附 decoder manifest、build-info、第三方许可证、checksum、
+  ABI consumer 结果和逐格式 PCM conformance 报告；`verify-release.mjs` 是发布门禁。
 - `package-sdk.sh` 会生成安装树、manifest、license、CycloneDX SBOM、tarball 和 SHA-256 checksum，作为后续 release job 的唯一输入。
 - Apple release job 必须以 `--strict` 构建第三方库并通过 full macOS C consumer；任何 decoder archive 缺失都会阻止发布。
 - `check-release-readiness.mjs` 必须在 CI 与 tag release 中通过；带 `-` 的版本发布为 prerelease，稳定语义版本自动发布为 latest release。

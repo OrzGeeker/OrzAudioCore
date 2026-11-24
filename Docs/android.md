@@ -21,6 +21,23 @@ OrzAudioCore-<ver>-android-full/
 
 `ANDROID_PLATFORM` 固定 **android-29**（消费方 minSdk 29）。
 
+## 官方 AAR
+
+`./script/build-android-aar.sh` 产出 `OrzAudioCore-<ver>-android-full.aar`，坐标
+`com.orzgeeker:audio-core-android:<ver>`。AAR 内含三个 ABI 的 `liborzaudio.so`
+（JNI 胶水 + 静态核心）、consumer rules、Kotlin API、`assets/orz/metadata` 和
+`assets/orz/licenses`。消费方只需一行 Gradle 依赖，不需要 NDK：
+
+```kotlin
+implementation("com.orzgeeker:audio-core-android:1.4.0")
+```
+
+Kotlin API 与 Swift/TS 对齐：`OrzAudioCore.buildInfoObject` / `profile` /
+`cacheNamespace` / `supportedFormats`、`createDecoder()`、`AudioDecoder`
+（render/seek/subsong/cancel/close）与 `PcmStream`。AAR 的 `.so` 只导出
+`Java_com_orzgeeker_audiocore_OrzAudioCore_*`，第三方符号全部 local；16KB 页对齐
+由 CMake 的 `-z,max-page-size=16384` 保证。
+
 ## 两种接入方式
 
 ### A. 直接加载共享库
