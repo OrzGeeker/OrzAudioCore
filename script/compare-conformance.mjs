@@ -11,8 +11,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const manifest = JSON.parse(fs.readFileSync(path.join(root, 'Tests/conformance/manifest.json'), 'utf8'));
+const formatConfig = new Map(manifest.formats.map(entry => [entry.format, entry]));
 const baselineDir = args.shift();
 const candidateDir = args.shift();
 if (!baselineDir || !candidateDir) throw new Error('usage: compare-conformance.mjs <baseline-dir> <candidate-dir>');
@@ -40,9 +44,9 @@ const checkpointDiff = (a, b) => {
   return maximum;
 };
 
-const acceptDrift = (a, b) => allowPcmDrift
-  && checkpointDiff(a, b) <= sampleTolerance
-  && Math.abs((a?.maxAbs ?? 0) - (b?.maxAbs ?? 0)) <= sampleTolerance;
+const acceptDrift = (a, b, tolerance = sampleTolerance) => allowPcmDrift
+  && checkpointDiff(a, b) <= tolerance
+  && Math.abs((a?.maxAbs ?? 0) - (b?.maxAbs ?? 0)) <= tolerance;
 
 for (const file of files) {
   const baselinePath = path.join(baselineDir, file);
@@ -59,6 +63,8 @@ for (const file of files) {
     continue;
   }
   const label = baseline.format ?? file;
+  const config = formatConfig.get(label) ?? {};
+  const tolerance = Math.max(sampleTolerance, Number(config.tolerance ?? 0));
   if (baseline.buildInfo && candidate.buildInfo && baseline.buildInfo !== candidate.buildInfo) {
     problems.push(`${label}: build info differs between platforms`);
   }
@@ -72,7 +78,7 @@ for (const file of files) {
   }
   for (const key of ['int16Sha256', 'floatSha256']) {
     if (baseline.pcm?.[key] !== candidate.pcm?.[key]) {
-      if (acceptDrift(baseline.pcm, candidate.pcm)) {
+      if (acceptDrift(baseline.pcm, candidate.pcm, tolerance)) {
         // WASM/native codegen may differ in the last float bits. The sampled
         // checkpoints bound the difference; record it in the snapshot.
       } else {
@@ -81,9 +87,11 @@ for (const file of files) {
     }
   }
   const seekStatus = baseline.seek?.status;
-  if (seekStatus !== candidate.seek?.status) problems.push(`${label}: seek status ${seekStatus} != ${candidate.seek?.status}`);
-  if (baseline.seek?.pcm?.int16Sha256 !== candidate.seek?.pcm?.int16Sha256 && !acceptDrift(baseline.seek?.pcm, candidate.seek?.pcm)) {
-    problems.push(`${label}: seek PCM hash mismatch`);
+  if (!config.expectedDifferences?.includes('seek') && seekStatus !== candidate.seek?.status) problems.push(`${label}: seek status ${seekStatus} != ${candidate.seek?.status}`);
+  if (!config.expectedDifferences?.includes('seek')) {
+    if (baseline.seek?.pcm?.int16Sha256 !== candidate.seek?.pcm?.int16Sha256 && !acceptDrift(baseline.seek?.pcm, candidate.seek?.pcm, tolerance)) {
+      problems.push(`${label}: seek PCM hash mismatch`);
+    }
   }
   if (JSON.stringify(baseline.lifecycle) !== JSON.stringify(candidate.lifecycle)) {
     problems.push(`${label}: lifecycle statuses differ`);
@@ -97,7 +105,7 @@ for (const file of files) {
   for (let index = 0; index < subsongs; index++) {
     const a = baseline.subsongs?.[index], b = candidate.subsongs?.[index];
     if (a?.status !== b?.status) problems.push(`${label}: subsong ${index} status ${a?.status} != ${b?.status}`);
-    else if (a?.pcm?.int16Sha256 !== b?.pcm?.int16Sha256 && !acceptDrift(a?.pcm, b?.pcm)) problems.push(`${label}: subsong ${index} PCM hash mismatch`);
+    else if (a?.pcm?.int16Sha256 !== b?.pcm?.int16Sha256 && !acceptDrift(a?.pcm, b?.pcm, tolerance)) problems.push(`${label}: subsong ${index} PCM hash mismatch`);
   }
 }
 
