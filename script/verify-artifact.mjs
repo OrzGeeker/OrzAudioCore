@@ -75,7 +75,8 @@ try {
   if (absolute.endsWith('.zip') || absolute.endsWith('.aar')) {
     execFileSync('unzip', ['-q', absolute, '-d', unpack]);
   } else {
-    execFileSync('tar', ['-xzf', absolute, '-C', unpack]);
+    const tarArgs = process.platform === 'win32' ? ['--force-local', '-xzf', absolute, '-C', unpack] : ['-xzf', absolute, '-C', unpack];
+    execFileSync('tar', tarArgs);
   }
   const roots = fs.readdirSync(unpack);
   const root = roots.includes('metadata') || roots.includes('package')
@@ -157,7 +158,7 @@ try {
 
   let runtime = null;
   if (runProbe) {
-    const probe = walk(root).find(file => path.basename(file) === 'orz_artifact_probe');
+    const probe = walk(root).find(file => /^orz_artifact_probe(\.exe)?$/.test(path.basename(file)));
     if (!probe) {
       if (requireProbe) fail('artifact has no orz_artifact_probe');
     } else {

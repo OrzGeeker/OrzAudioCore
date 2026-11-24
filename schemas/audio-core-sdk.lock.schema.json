@@ -43,7 +43,7 @@
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string", "pattern": "^OrzAudioCore-[0-9A-Za-z.+-]+-[a-z0-9_-]+-(builtin-lite|full|server)(\\.xcframework)?\\.(tar\\.gz|tgz|zip|aar)$" },
-          "platform": { "enum": ["macos-arm64", "macos-x86_64", "linux-x86_64", "linux-arm64", "apple", "ios", "android", "web"] },
+          "platform": { "enum": ["macos-arm64", "macos-x86_64", "linux-x86_64", "linux-arm64", "windows-x86_64", "apple", "ios", "android", "web"] },
           "profile": { "enum": ["builtin-lite", "full", "server"] },
           "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "url": { "type": "string", "format": "uri" }

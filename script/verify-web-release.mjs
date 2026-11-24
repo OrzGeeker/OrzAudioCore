@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const web = path.join(root, 'SDK/Web');
 const required = [
   'wasm/orz_audio.js',
+  'wasm/orz_audio.mjs',
   'wasm/orz_audio.wasm',
   'wasm/orz_audio_builtin.js',
   'wasm/orz_audio_builtin.mjs',

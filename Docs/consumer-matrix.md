@@ -14,7 +14,7 @@ Last updated for SDK 1.4.0. "Formats" is the runtime format count; the
 | iOS device/simulator | `builtin-lite` | 3 | `OrzAudioCore-<ver>-apple-builtin-lite.xcframework.zip` | Swift source/binary target |
 | Android arm64-v8a/armeabi-v7a/x86_64 | `full` | 23 | `OrzAudioCore-<ver>-android-full.tar.gz`, `OrzAudioCore-<ver>-android-full.aar` | Kotlin `com.orzgeeker:audio-core-android` |
 | Web (Chrome/Safari/Firefox) | `full` + `builtin-lite` | 23 / 3 | `OrzAudioCore-<ver>-web-full.tgz` | npm `@orzmusic/audio-core` |
-| Windows x86_64 | `builtin-lite` (source build) | 3 | source/CMake only, not release-verified | C ABI (see [windows.md](windows.md)) |
+| Windows x86_64 | `builtin-lite` | 3 | `OrzAudioCore-<ver>-windows-x86_64-builtin-lite.tar.gz` | C ABI (see [windows.md](windows.md)) |
 
 `server` and `full` contain the same formats and decoder versions but have
 different `cacheNamespace` values (`orzaudio-…-server-…` vs `…-full-…`) because

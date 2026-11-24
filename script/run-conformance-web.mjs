@@ -23,32 +23,39 @@ const option = (name, fallback) => {
   return index >= 0 ? args[index + 1] : fallback;
 };
 const modulePath = path.resolve(option('--module', path.join(root, 'SDK/Web/wasm/orz_audio_builtin.mjs')));
+const bindingPath = path.resolve(option('--binding', path.join(root, 'SDK/Web/dist/index.js')));
 const wasmPath = path.resolve(option('--wasm', path.join(root, 'SDK/Web/wasm/orz_audio_builtin.wasm')));
 const out = path.resolve(option('--out', path.join(root, '.conformance')));
 const platform = option('--platform', 'web');
 const frames = Number(option('--frames', '8192'));
 const maxSeconds = Number(option('--max-seconds', '30'));
 const fixtures = path.resolve(option('--fixtures', process.env.ORZ_CONFORMANCE_FIXTURES ?? path.join(root, 'Tests/conformance/fixtures')));
-const wanted = new Set((option('--formats', 'ym,mid,bp') || '').split(',').filter(Boolean));
+const wanted = new Set((option('--formats', '') || '').split(',').filter(Boolean));
+if (!wanted.size) for (const entry of manifest.formats) if (entry.path) wanted.add(entry.format);
 
 if (!fs.existsSync(modulePath) || !fs.existsSync(wasmPath)) {
   throw new Error(`missing WASM assets: ${modulePath} / ${wasmPath}`);
 }
-const { createDecoder, buildInfo } = await import(pathToFileURL(modulePath));
+if (!fs.existsSync(bindingPath)) throw new Error(`missing Web binding: ${bindingPath} (run npm run build)`);
+const { createDecoder, buildInfo } = await import(pathToFileURL(bindingPath));
 const factory = (await import(pathToFileURL(modulePath))).default;
 const module = await factory({ wasmBinary: fs.readFileSync(wasmPath) });
 const target = path.join(out, platform);
 fs.mkdirSync(target, { recursive: true });
 const info = buildInfo(module);
 
-function summarize(decoder) {
+function summarize(decoder, requestedFrames = frames) {
   const channels = decoder.info.channels || 1;
   const pcmParts = [];
+  const checkpoints = [];
   let renderedFrames = 0;
-  const maxFrames = Math.min(frames, Math.max(1, Math.floor((decoder.info.duration || 0) * (decoder.info.sampleRate || 44100))), (decoder.info.sampleRate || 44100) * maxSeconds);
+  const maxFrames = Math.min(requestedFrames, Math.max(1, Math.floor((decoder.info.duration || 0) * (decoder.info.sampleRate || 44100))), (decoder.info.sampleRate || 44100) * maxSeconds);
   while (renderedFrames < maxFrames) {
     const chunk = decoder.render(Math.min(2048, maxFrames - renderedFrames));
     if (chunk.length === 0) break;
+    if (checkpoints.length < 8 && renderedFrames % 4096 === 0) {
+      checkpoints.push([...chunk.slice(0, 4)]);
+    }
     pcmParts.push(chunk);
     renderedFrames += chunk.length / channels;
   }
@@ -69,11 +76,16 @@ function summarize(decoder) {
     maxAbs,
     first: [...pcm.slice(0, Math.min(16, pcm.length))],
     last: [...pcm.slice(Math.max(0, pcm.length - 16))],
+    checkpoints,
   };
 }
 
 for (const entry of manifest.formats) {
-  if (!entry.path || !wanted.has(entry.format)) continue;
+  if (!entry.path) {
+    fs.writeFileSync(path.join(target, `${entry.format}.json`), `${JSON.stringify({ format: entry.format, skipped: entry.skipReason }, null, 2)}\n`);
+    continue;
+  }
+  if (!wanted.has(entry.format)) continue;
   const directory = path.join(fixtures, entry.format);
   let file = path.join(fixtures, entry.path);
   if (!fs.existsSync(file)) {
@@ -94,7 +106,7 @@ for (const entry of manifest.formats) {
       const position = Math.floor(stream.duration * 500);
       try {
         decoder.seek(position);
-        report.seek = { status: 0, positionMs: position, pcm: summarize(decoder) };
+        report.seek = { status: 0, positionMs: position, pcm: summarize(decoder, 1024) };
       } catch (error) {
         report.seek = { status: error.status ?? -7, message: error.message };
       }
@@ -107,12 +119,28 @@ for (const entry of manifest.formats) {
         const sub = createDecoder(module, data, entry.format);
         try {
           sub.selectSubsong(index);
-          report.subsongs.push({ index, status: 0, sampleRate: sub.info.sampleRate, channels: sub.info.channels, duration: sub.info.duration, pcm: summarize(sub) });
+          report.subsongs.push({ index, status: 0, sampleRate: sub.info.sampleRate, channels: sub.info.channels, duration: sub.info.duration, pcm: summarize(sub, 1024) });
         } catch (error) {
           report.subsongs.push({ index, status: error.status ?? -7 });
         } finally { sub.close(); }
       }
     }
+    report.lifecycle = [];
+    for (let cycle = 0; cycle < 4; cycle++) {
+      const instance = createDecoder(module, data, entry.format);
+      try { instance.render(1); report.lifecycle.push(0); }
+      catch (error) { report.lifecycle.push(error.status ?? -7); }
+      finally { instance.close(); }
+    }
+    try {
+      const seekHandle = createDecoder(module, data, entry.format);
+      seekHandle.seek(Math.floor(((stream.duration || 0) + 60) * 1000));
+      report.seekOutOfRange = { status: 0 };
+      seekHandle.close();
+    } catch (error) {
+      report.seekOutOfRange = { status: error.status ?? -7 };
+    }
+
     const cancel = createDecoder(module, data, entry.format);
     cancel.cancel();
     try {

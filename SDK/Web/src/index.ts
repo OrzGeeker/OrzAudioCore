@@ -16,7 +16,7 @@ export interface EmscriptenOrzModule {
   _orz_decoder_create_memory(data: number, size: number, format: number, config: number, output: number): number;
   _orz_decoder_get_stream_info(decoder: number, output: number): number;
   _orz_decoder_render_f32(decoder: number, output: number, frames: number, rendered: number): number;
-  _orz_decoder_seek(decoder: number, milliseconds: number): number;
+  _orz_decoder_seek(decoder: number, milliseconds: number | bigint): number;
   _orz_decoder_select_subsong_v1(decoder: number, subsong: number): number;
   _orz_decoder_reset(decoder: number): number;
   _orz_decoder_cancel(decoder: number): number;
@@ -134,7 +134,11 @@ export class AudioDecoder {
       return this.module.HEAPF32.slice(pcm >>> 2, (pcm >>> 2) + count);
     } finally { this.module._free(rendered); this.module._free(pcm); }
   }
-  seek(milliseconds: number): void { check(this.module._orz_decoder_seek(this.#handle, milliseconds), 'seek'); }
+  seek(milliseconds: number): void {
+    // Emscripten builds with WASM_BIGINT require BigInt for the uint64 ABI.
+    const position = typeof BigInt === 'function' ? BigInt(Math.max(0, Math.trunc(milliseconds))) : milliseconds;
+    check(this.module._orz_decoder_seek(this.#handle, position), 'seek');
+  }
   selectSubsong(index: number): void { check(this.module._orz_decoder_select_subsong_v1(this.#handle, index), 'select subsong'); }
   reset(): void { check(this.module._orz_decoder_reset(this.#handle), 'reset'); }
   cancel(): void { if (this.#handle) this.module._orz_decoder_cancel(this.#handle); }

@@ -54,13 +54,13 @@ if (await exists(dirname(kotlinOutput))) outputs.push([kotlinOutput, kotlinManif
 
 if (process.argv.includes('--check')) {
   for (const [path, expected] of outputs) {
-    if (await readFile(path, 'utf8') !== expected) {
+    if ((await readFile(path, 'utf8')).replace(/\r\n/g, '\n') !== expected) {
       throw new Error(`${path} is stale; run script/generate-decoder-manifest.mjs`);
     }
   }
   // The browser product projection belongs to OrzMusic, not the standalone
   // SDK. Validate it only when the consumer-owned output exists.
-  if (await exists(browserOutput) && await readFile(browserOutput, 'utf8') !== browserManifest) {
+  if (await exists(browserOutput) && (await readFile(browserOutput, 'utf8')).replace(/\r\n/g, '\n') !== browserManifest) {
     throw new Error('browser manifest is stale; run script/generate-decoder-manifest.mjs');
   }
   // Emit the per-profile JSON so callers can diff runtime build info in CI.

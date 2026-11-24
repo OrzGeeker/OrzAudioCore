@@ -24,7 +24,8 @@
     "./wasm/orz_audio_builtin.mjs": "./wasm/orz_audio_builtin.mjs",
     "./wasm/orz_audio_builtin.js": "./wasm/orz_audio_builtin.js",
     "./wasm/orz_audio_builtin.wasm": "./wasm/orz_audio_builtin.wasm",
-    "./decoder-manifest.json": "./decoder-manifest.json"
+    "./decoder-manifest.json": "./decoder-manifest.json",
+    "./wasm/orz_audio.mjs": "./wasm/orz_audio.mjs"
   },
   "files": [
     "dist",

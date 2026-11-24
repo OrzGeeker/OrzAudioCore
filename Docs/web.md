@@ -5,6 +5,7 @@ The npm package is `@orzmusic/audio-core`. It ships two WASM projections:
 | Asset | Profile | Use |
 |---|---|---|
 | `wasm/orz_audio.js` + `.wasm` | full | classic worker / `importScripts` |
+| `wasm/orz_audio.mjs` + `.wasm` | full | ESM loader, conformance runner |
 | `wasm/orz_audio_builtin.mjs` + `.wasm` | builtin-lite | ESM loader, `ym`/`mid`/`bp` |
 
 Both are versioned with the package; `decoder-manifest.json` in the package is

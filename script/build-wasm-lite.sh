@@ -23,7 +23,7 @@ sources=(
   "$SOURCE/ym6/unlzh_ym.c"
 )
 common=(
-  -I"$SOURCE/include" -I"$SOURCE/dispatch" -O3 --no-entry
+  -I"$SOURCE/include" -I"$SOURCE/dispatch" -O3 --no-entry -DORZ_PROFILE_ID=0
   -s WASM=1 -s MODULARIZE=1 -s FILESYSTEM=0
   -s ALLOW_MEMORY_GROWTH=1 -s MALLOC=emmalloc
   -s 'INCOMING_MODULE_JS_API=["locateFile","wasmBinary"]'
