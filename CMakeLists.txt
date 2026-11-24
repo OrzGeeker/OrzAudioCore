@@ -69,6 +69,10 @@ if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     # because consumers may link the static OrzAudioCore archive.
     target_link_libraries(OrzAudioCore PUBLIC m)
 endif()
+if(MSVC)
+    # stdatomic.h is opt-in on MSVC; orz_dispatch.c uses atomic_int for cancel.
+    target_compile_options(OrzAudioCore PRIVATE /experimental:c11atomics)
+endif()
 if(ANDROID)
     # Android 15+ 支持 16KB 页;Play 要求新提交的 native 库按 16KB 对齐。
     target_link_options(OrzAudioCore PRIVATE "LINKER:-z,max-page-size=16384")
