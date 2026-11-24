@@ -169,6 +169,16 @@
         "ORZ_BUILD_SHARED": "ON",
         "ORZ_BUILD_TESTS": "OFF"
       }
+    },
+    {
+      "name": "windows-x86_64-full",
+      "inherits": "base",
+      "cacheVariables": {
+        "ORZ_PROFILE": "full",
+        "ORZ_BUILD_SHARED": "ON",
+        "ORZ_BUILD_TESTS": "ON",
+        "ORZ_NATIVE_LIB": "${sourceDir}/.wasm-build/native"
+      }
     }
   ],
   "buildPresets": [
@@ -231,6 +241,10 @@
     {
       "name": "ios-simulator-full",
       "configurePreset": "ios-simulator-full"
+    },
+    {
+      "name": "windows-x86_64-full",
+      "configurePreset": "windows-x86_64-full"
     }
   ]
 }
