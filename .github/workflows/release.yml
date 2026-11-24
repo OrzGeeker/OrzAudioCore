@@ -46,12 +46,19 @@ jobs:
       - run: ./script/build-native-libs.sh --strict
       - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh "${{ matrix.preset }}" "$RUNNER_TEMP/release"
       - run: ./script/verify-elf-exports.sh ".cmake-build/${{ matrix.preset }}/libOrzAudioCore.so"
+      - run: node script/fetch-conformance-fixtures.mjs
+      - run: >-
+          node script/run-conformance.mjs
+          --binary .cmake-build/${{ matrix.preset }}/orz_conformance
+          --out "$RUNNER_TEMP/conformance/linux-${{ matrix.arch }}"
+          --platform linux-${{ matrix.arch }} --require-all
       - uses: actions/upload-artifact@v4
         with:
           name: server-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/conformance/
 
   web:
     runs-on: ubuntu-24.04
@@ -71,12 +78,22 @@ jobs:
       - run: ORZ_WASM_OUTPUT_DIR="$GITHUB_WORKSPACE/SDK/Web/wasm" ./script/build-wasm.sh
       - run: ./script/build-wasm-lite.sh
       - working-directory: SDK/Web
-        run: npm install && npm run build && npm test && npm pack
+        run: npm install && npm run build && npm test
       - run: node script/verify-web-release.mjs
+      - run: ./script/package-web-sdk.sh "$RUNNER_TEMP/release"
+      - run: node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
+      - run: >-
+          node script/run-conformance-web.mjs
+          --module SDK/Web/wasm/orz_audio_builtin.mjs
+          --wasm SDK/Web/wasm/orz_audio_builtin.wasm
+          --out "$RUNNER_TEMP/conformance" --platform web --formats ym,mid,bp
       - uses: actions/upload-artifact@v4
         with:
           name: web
-          path: SDK/Web/orzmusic-audio-core-*.tgz
+          path: |
+            ${{ runner.temp }}/release/*.tgz
+            ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/conformance/
 
   apple:
     runs-on: macos-15
@@ -95,17 +112,24 @@ jobs:
       - id: host
         run: echo "preset=macos-$(uname -m)" >> "$GITHUB_OUTPUT"
       - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh "${{ steps.host.outputs.preset }}" "$RUNNER_TEMP/release"
-      - run: ./script/build-xcframework.sh "$RUNNER_TEMP/apple"
-      - run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/apple/OrzAudioCore.xcframework" "$RUNNER_TEMP/OrzAudioCore.xcframework.zip"
-      - run: (cd "$RUNNER_TEMP" && shasum -a 256 OrzAudioCore.xcframework.zip) > "$RUNNER_TEMP/OrzAudioCore.xcframework.zip.sha256"
+      - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-apple-sdk.sh "$RUNNER_TEMP/release" --profile full
+      - run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-apple-sdk.sh "$RUNNER_TEMP/release" --profile builtin-lite
+      - run: ./script/smoke-apple.sh "$RUNNER_TEMP/release/OrzAudioCore-${GITHUB_REF_NAME#v}-apple-full/OrzAudioCore.xcframework"
+      - run: node script/fetch-conformance-fixtures.mjs
+      - run: >-
+          node script/run-conformance.mjs
+          --binary .cmake-build/${{ steps.host.outputs.preset }}/orz_conformance
+          --out "$RUNNER_TEMP/conformance/macos-arm64" --platform macos-arm64 --require-all
       - uses: actions/upload-artifact@v4
         with:
           name: apple
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
-            ${{ runner.temp }}/OrzAudioCore.xcframework.zip
-            ${{ runner.temp }}/OrzAudioCore.xcframework.zip.sha256
+            ${{ runner.temp }}/release/*.zip
+            ${{ runner.temp }}/release/*.swift
+            ${{ runner.temp }}/release/*.swift.sha256
+            ${{ runner.temp }}/conformance/
 
   android:
     runs-on: ubuntu-24.04
@@ -114,6 +138,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: 22}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
       - uses: nttld/setup-ndk@v1
         id: ndk
         with:
@@ -126,35 +152,40 @@ jobs:
           path: .wasm-build/cache
           key: orz-decoder-sources-${{ runner.os }}-${{ hashFiles('script/fetch-decoder-sources.sh') }}
       - run: ./script/fetch-decoder-sources.sh
-      - name: Cross-compile (arm64-v8a + armeabi-v7a)
+      - name: Build C SDK + official AAR (all ABIs)
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
           JOBS: "4"
-        run: ./script/build-android.sh
-      - name: Cross-compile (x86_64 emulator)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          JOBS: "4"
-        run: ./script/build-android.sh --abi x86_64
-      - name: Package Android SDK asset
-        env:
-          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-        run: >
-          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
-          ./script/package-android-sdk.sh "$RUNNER_TEMP/release"
+          ORZ_RELEASE_DIR: ${{ runner.temp }}/release
+        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/build-android-aar.sh
       - uses: actions/upload-artifact@v4
         with:
           name: android
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/release/*.aar
+            ${{ runner.temp }}/release/*.aar.sha256
+
+  conformance-compare:
+    needs: [server, apple]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {pattern: "server-*", path: conformance, merge-multiple: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: apple, path: conformance, merge-multiple: true}
+      - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
 
   publish:
-    needs: [native, server, web, apple, android]
+    needs: [native, server, web, apple, android, conformance-compare]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with: {path: release, merge-multiple: true}
+      - name: Verify every asset and generate a lockfile
+        run: node script/check-release-readiness.mjs "${GITHUB_REF_NAME#v}" --release-dir release
       - name: Publish release candidate
         if: contains(github.ref_name, '-')
         run: |

@@ -7,3 +7,13 @@ Libraries/OrzAudioKit/native/*.a
 node_modules/
 SDK/Web/dist/
 .DS_Store
+.conformance/
+Tests/conformance/fixtures/
+SDK/Web/metadata/
+SDK/Web/licenses/
+SDK/Web/README.md
+SDK/Android/audio-core/src/main/jniLibs/
+SDK/Android/audio-core/src/main/assets/
+SDK/Android/.gradle/
+SDK/Android/audio-core/build/
+SDK/Android/audio-core/local.properties

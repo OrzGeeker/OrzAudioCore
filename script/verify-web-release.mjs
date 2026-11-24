@@ -50,4 +50,10 @@ function canDecode(format) {
 for (const decoder of manifest.formats.filter(entry => entry.profiles.includes('full'))) {
   assert.ok(canDecode(decoder.id), `full Web binary does not implement manifest format: ${decoder.id}`);
 }
+if (typeof wasm._orz_build_info === 'function') {
+  const buildInfo = JSON.parse(wasm.UTF8ToString(wasm._orz_build_info()));
+  assert.equal(buildInfo.profile, 'full');
+  assert.ok(buildInfo.cacheNamespace.startsWith(`orzaudio-${packageJson.version}-full-`));
+  assert.deepEqual([...buildInfo.formats].sort(), manifest.formats.filter(entry => entry.profiles.includes('full')).map(entry => entry.id).sort());
+}
 console.log(`verified full and builtin-lite Web assets for ${packageJson.version}`);

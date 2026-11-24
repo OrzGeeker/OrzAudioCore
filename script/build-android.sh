@@ -108,7 +108,7 @@ build_deps() {
         export CC="$cc" CXX="$cxx"
         export AR="$TOOLCHAIN/bin/llvm-ar" RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
         export STRIP="$TOOLCHAIN/bin/llvm-strip"
-        export CFLAGS="-O2" CXXFLAGS="-O2"
+        export CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
         export ORZ_HOST_TRIPLE="$triple"
         export ORZ_BUILD_TAG="android-$abi"
         export ORZ_NATIVE_OUT="$native_out"

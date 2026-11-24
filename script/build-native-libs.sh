@@ -48,15 +48,23 @@ if [ -n "${ORZ_CMAKE_EXTRA_ARGS:-}" ]; then
 fi
 
 JOBS=${JOBS:-$(sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 4)}
+# Cross builds must archive with the target toolchain. Using the host `ar` on
+# ELF objects produces an archive the target linker cannot read.
+AR_TOOL="${AR:-ar}"
+RANLIB_TOOL="${RANLIB:-ranlib}"
 HOST_CC=${CC:-clang}
 HOST_CXX=${CXX:-clang++}
 NATIVE_CFLAGS=${CFLAGS:-}
 NATIVE_CXXFLAGS=${CXXFLAGS:-}
 if [ "$(uname -s)" = "Darwin" ]; then
-    MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
-    export MACOSX_DEPLOYMENT_TARGET
-    NATIVE_CFLAGS="$NATIVE_CFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-    NATIVE_CXXFLAGS="$NATIVE_CXXFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+    # Only inject the macOS deployment target for host builds. iOS/Android
+    # cross builds provide their own -target/-mios-version-min via CC/CXX.
+    if [ -z "${ORZ_HOST_TRIPLE:-}" ]; then
+        MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
+        export MACOSX_DEPLOYMENT_TARGET
+        NATIVE_CFLAGS="$NATIVE_CFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+        NATIVE_CXXFLAGS="$NATIVE_CXXFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+    fi
 else
     # Full/server SDK produces a shared object on Linux, so every archive
     # linked into it (including TLS-based AHX state) must be position independent.
@@ -372,8 +380,8 @@ build_libbinio() {
             }
             objects+=("$object")
         done
-        ar rcs "$output" "${objects[@]}"
-        ranlib "$output"
+        "$AR_TOOL" rcs "$output" "${objects[@]}"
+        "$RANLIB_TOOL" "$output"
         mkdir -p "$build_dir/src/.libs"
         cp "$output" "$build_dir/src/.libs/libbinio.a"
         popd >/dev/null
@@ -424,6 +432,7 @@ build_adplug() {
     LDFLAGS="-L$binio_prefix/src/.libs" \
     libbinio_CFLAGS="-I$SRC_DIR/libbinio/src" \
     libbinio_LIBS="$binio_prefix/src/.libs/libbinio.a" \
+    ac_cv_header_sys_io_h=no \
     "$src_dir/configure" \
         --host="$HOST" \
         --disable-shared \
@@ -447,8 +456,8 @@ build_adplug() {
         popd >/dev/null
         return 1
     fi
-    ar rcs "$output" "${adplug_objects[@]}"
-    ranlib "$output"
+    "$AR_TOOL" rcs "$output" "${adplug_objects[@]}"
+    "$RANLIB_TOOL" "$output"
     mkdir -p "$build_dir/src/.libs"
     cp "$output" "$build_dir/src/.libs/libadplug.a"
 
@@ -522,7 +531,7 @@ build_libsc68() {
         popd >/dev/null; return 1
     fi
 
-    ar cr "$output" "${objs[@]}" 2>/dev/null && ranlib "$output" 2>/dev/null
+    "$AR_TOOL" cr "$output" "${objs[@]}" 2>/dev/null && "$RANLIB_TOOL" "$output" 2>/dev/null
     log "libsc68.a → $output (${#objs[@]} objects, ${compile_ok}/${#C_FILES[@]} compiled)"
     echo "$NATIVE_DIR"
 }
@@ -548,7 +557,7 @@ build_libasap() {
     $HOST_CC $NATIVE_CFLAGS -c "$src_dir/asap.c" -o asap.o -I"$src_dir" -O2 2>/dev/null || {
         warn "ASAP compile failed"; popd >/dev/null; return 1
     }
-    ar cr "$output" asap.o 2>/dev/null && ranlib "$output" 2>/dev/null
+    "$AR_TOOL" cr "$output" asap.o 2>/dev/null && "$RANLIB_TOOL" "$output" 2>/dev/null
     log "libasap.a → $output ($(du -h "$output" | cut -f1))"
     echo "$NATIVE_DIR"
 }
@@ -623,7 +632,7 @@ build_libuade() {
     [ $compile_ok -eq 0 ] && { warn "No UAE core files compiled"; popd >/dev/null; return 1; }
 
     local objs=( *.o )
-    ar cr "$output" "${objs[@]}" 2>/dev/null && ranlib "$output" 2>/dev/null
+    "$AR_TOOL" cr "$output" "${objs[@]}" 2>/dev/null && "$RANLIB_TOOL" "$output" 2>/dev/null
     log "libuade.a → $output (${#objs[@]} objects)"
     echo "$NATIVE_DIR"
 }
@@ -661,7 +670,7 @@ build_libv2m() {
     if [ -z "$objs" ]; then
         warn "v2m no source files compiled"; popd >/dev/null; return 1
     fi
-    ar cr "$output" $objs 2>/dev/null && ranlib "$output" 2>/dev/null
+    "$AR_TOOL" cr "$output" $objs 2>/dev/null && "$RANLIB_TOOL" "$output" 2>/dev/null
 
     if [ -f "$output" ]; then
         log "libv2m.a → $output ($(du -h "$output" | cut -f1))"
@@ -701,7 +710,7 @@ build_libahx2play() {
             -include "$PROJECT_DIR/Libraries/OrzAudioKit/thirdparty/ahx2play/mixer_stubs.h" || return 1
         objs="$objs $obj"
     done
-    ar cr "$output" $objs && ranlib "$output"
+    "$AR_TOOL" cr "$output" $objs && "$RANLIB_TOOL" "$output"
     [ "$INSTALL_HOST_LIBS" = "1" ] && cp "$output" "$install_output"
     log "libahx2play.a → $output"
 }

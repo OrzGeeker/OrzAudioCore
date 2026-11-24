@@ -37,12 +37,53 @@ public final class AudioDecoder: @unchecked Sendable {
 
     public static var abiVersion: UInt32 { orz_abi_version() }
     public static var buildInfo: String { String(cString: orz_build_info()) }
-    public static let cacheFingerprint: String = {
+
+    public struct DecoderDependency: Sendable, Equatable {
+        public let id: String
+        public let version: String
+    }
+
+    /// Parsed projection of `orz_build_info()`. The raw JSON stays available
+    /// through `buildInfo` for consumers that prefer to parse it themselves.
+    public struct BuildInfo: Sendable, Equatable {
+        public let sdk: String
+        public let version: String
+        public let abi: String
+        public let profile: String
+        public let fingerprint: String
+        public let cacheNamespace: String
+        public let formats: [String]
+        public let decoders: [DecoderDependency]
+    }
+
+    public static let buildInfoObject: BuildInfo = {
         guard let data = buildInfo.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let value = object["fingerprint"] as? String else { return "orzcore-abi-\(abiVersion)" }
-        return value
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return BuildInfo(sdk: "OrzAudioCore", version: "unknown", abi: "unknown",
+                             profile: "unknown", fingerprint: "orzcore-abi-\(abiVersion)",
+                             cacheNamespace: "orzcore-abi-\(abiVersion)", formats: [], decoders: [])
+        }
+        let rawDecoders: [[String: Any]] = object["decoders"] as? [[String: Any]] ?? []
+        let decoders: [DecoderDependency] = rawDecoders.compactMap { entry in
+            guard let id = entry["id"] as? String, let version = entry["version"] as? String else { return nil }
+            return DecoderDependency(id: id, version: version)
+        }
+        let fingerprint = object["fingerprint"] as? String ?? "orzcore-abi-\(abiVersion)"
+        return BuildInfo(
+            sdk: object["sdk"] as? String ?? "OrzAudioCore",
+            version: object["version"] as? String ?? "unknown",
+            abi: object["abi"] as? String ?? "unknown",
+            profile: object["profile"] as? String ?? "unknown",
+            fingerprint: fingerprint,
+            cacheNamespace: object["cacheNamespace"] as? String ?? fingerprint,
+            formats: (object["formats"] as? [String]) ?? [],
+            decoders: decoders
+        )
     }()
+
+    public static var profile: String { buildInfoObject.profile }
+    public static var cacheNamespace: String { buildInfoObject.cacheNamespace }
+    public static var cacheFingerprint: String { buildInfoObject.fingerprint }
 
     public static var supportedFormats: [DecoderFormatInfo] {
         (0..<orz_get_format_count()).compactMap { index in

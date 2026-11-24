@@ -24,6 +24,10 @@ jobs:
         run: ./script/build-native-libs.sh --strict
       - name: Build and test full SDK
         run: ./script/build-sdk.sh "${{ matrix.preset }}"
+      - name: Run full conformance corpus
+        run: |
+          node script/fetch-conformance-fixtures.mjs
+          node script/run-conformance.mjs --binary ".cmake-build/${{ matrix.preset }}/orz_conformance"             --out "$RUNNER_TEMP/conformance" --platform "linux-${{ matrix.arch }}" --require-all
       - name: Package full server SDK
         run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ./script/package-sdk.sh "${{ matrix.preset }}" "$RUNNER_TEMP/release"
       - uses: actions/upload-artifact@v4
@@ -32,3 +36,4 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/conformance/

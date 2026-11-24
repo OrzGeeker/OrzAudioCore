@@ -71,3 +71,44 @@ test('destroys the native handle when stream metadata initialization fails', () 
   assert.throws(() => createDecoder(module, new Uint8Array([1]), 'ym'), error => error instanceof OrzAudioCoreError && error.status === -4);
   assert.deepEqual(destroyed, [77]);
 });
+
+test('parses build info and runtime formats from the binary', async () => {
+  const { buildInfo, supportedFormats } = await import('../dist/index.js');
+  const strings = [];
+  const { module } = mockModule({
+    _orz_build_info() {
+      strings[256] = JSON.stringify({
+        sdk: 'OrzAudioCore', version: '1.4.0', abi: '1.0', profile: 'builtin-lite',
+        fingerprint: 'orzaudio-1.4.0-builtin-lite-abc', cacheNamespace: 'orzaudio-1.4.0-builtin-lite-abc',
+        formats: ['ym', 'mid', 'bp'], decoders: [{id: 'ym6', version: '1'}],
+      });
+      return 256;
+    },
+    _orz_get_format_count() { return 1; },
+    _orz_get_format_info(_index, output) {
+      const put = (offset, value) => { strings[300 + offset] = value; module.HEAPU32[(output + offset) >>> 2] = 300 + offset; };
+      put(8, 'ym'); put(12, 'YM'); put(16, 'ym6'); put(20, '1'); put(24, 'console');
+      module.HEAPU32[(output + 28) >>> 2] = 3;
+      return 0;
+    },
+    UTF8ToString(pointer) { return strings[pointer] ?? ''; },
+  });
+  assert.equal(buildInfo(module).profile, 'builtin-lite');
+  assert.equal(buildInfo(module).cacheNamespace, 'orzaudio-1.4.0-builtin-lite-abc');
+  assert.deepEqual(buildInfo(module).formats, ['ym', 'mid', 'bp']);
+  assert.deepEqual(supportedFormats(module), [{id: 'ym', displayName: 'YM', decoderID: 'ym6', decoderVersion: '1', category: 'console', capabilities: 3}]);
+});
+
+test('protocol helpers keep the ring-buffer accounting in sync', async () => {
+  const { ControlIndex, StreamState, freeFrames, resetRing, usedFrames } = await import('../dist/protocol.js');
+  assert.equal(usedFrames(10, 4, 16), 6);
+  assert.equal(usedFrames(1, 15, 16), 2);
+  const control = new Int32Array(new SharedArrayBuffer(ControlIndex.underruns * 4 + 4));
+  control[ControlIndex.write] = 10; control[ControlIndex.read] = 4; control[ControlIndex.state] = StreamState.Running;
+  assert.equal(freeFrames(control, 16), 9);
+  resetRing(control, 7);
+  assert.equal(control[ControlIndex.write], 0);
+  assert.equal(control[ControlIndex.read], 0);
+  assert.equal(control[ControlIndex.state], StreamState.Priming);
+  assert.equal(control[ControlIndex.generation], 7);
+});

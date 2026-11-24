@@ -10,6 +10,9 @@ export interface EmscriptenOrzModule {
   _malloc(size: number): number;
   _free(pointer: number): void;
   _orz_abi_version(): number;
+  _orz_build_info(): number;
+  _orz_get_format_count(): number;
+  _orz_get_format_info(index: number, output: number): number;
   _orz_decoder_create_memory(data: number, size: number, format: number, config: number, output: number): number;
   _orz_decoder_get_stream_info(decoder: number, output: number): number;
   _orz_decoder_render_f32(decoder: number, output: number, frames: number, rendered: number): number;
@@ -24,6 +27,78 @@ export interface EmscriptenOrzModule {
 }
 
 export interface StreamInfo { sampleRate: number; channels: number; duration: number; subsongCount: number; capabilities: number }
+
+export interface DecoderDependency { id: string; version: string }
+
+export interface BuildInfo {
+  sdk: string;
+  version: string;
+  abi: string;
+  profile: string;
+  fingerprint: string;
+  cacheNamespace: string;
+  formats: string[];
+  decoders: DecoderDependency[];
+}
+
+export interface FormatInfo {
+  id: string;
+  displayName: string;
+  decoderID: string;
+  decoderVersion: string;
+  category: string;
+  capabilities: number;
+}
+
+const FORMAT_INFO_SIZE = 56;
+
+/** Parse the stable `orz_build_info()` JSON returned by the WASM module. */
+export function buildInfo(module: EmscriptenOrzModule): BuildInfo {
+  const pointer = module._orz_build_info();
+  if (!pointer) throw new OrzAudioCoreError(-7, 'build info');
+  const parsed = JSON.parse(module.UTF8ToString(pointer)) as Partial<BuildInfo>;
+  if (!parsed.profile || !parsed.cacheNamespace || !Array.isArray(parsed.formats)) {
+    throw new OrzAudioCoreError(-7, 'build info is missing profile/cacheNamespace/formats');
+  }
+  return {
+    sdk: parsed.sdk ?? 'OrzAudioCore',
+    version: parsed.version ?? 'unknown',
+    abi: parsed.abi ?? 'unknown',
+    profile: parsed.profile,
+    fingerprint: parsed.fingerprint ?? parsed.cacheNamespace,
+    cacheNamespace: parsed.cacheNamespace,
+    formats: parsed.formats,
+    decoders: parsed.decoders ?? []
+  };
+}
+
+/**
+ * Runtime format list straight from the loaded binary. Compare it with the
+ * package manifest to detect a binary/manifest mismatch before playback.
+ */
+export function supportedFormats(module: EmscriptenOrzModule): FormatInfo[] {
+  const count = module._orz_get_format_count();
+  const output: FormatInfo[] = [];
+  const pointer = module._malloc(FORMAT_INFO_SIZE);
+  try {
+    for (let index = 0; index < count; index++) {
+      module.HEAPU8.fill(0, pointer, pointer + FORMAT_INFO_SIZE);
+      module.HEAPU32[pointer >>> 2] = FORMAT_INFO_SIZE;
+      module.HEAPU32[(pointer + 4) >>> 2] = module._orz_abi_version();
+      check(module._orz_get_format_info(index, pointer), 'format info');
+      const string = (offset: number) => {
+        const address = module.HEAPU32[(pointer + offset) >>> 2];
+        return address ? module.UTF8ToString(address) : '';
+      };
+      output.push({
+        id: string(8), displayName: string(12), decoderID: string(16),
+        decoderVersion: string(20), category: string(24),
+        capabilities: module.HEAPU32[(pointer + 28) >>> 2]
+      });
+    }
+  } finally { module._free(pointer); }
+  return output;
+}
 
 export class OrzAudioCoreError extends Error {
   constructor(public readonly status: number, operation: string) { super(`${operation} failed with OrzAudioCore status ${status}`); }

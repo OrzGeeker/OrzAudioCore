@@ -148,7 +148,7 @@ EOF
 # ---------------------------------------------------------------------------
 if command -v node >/dev/null 2>&1; then
     SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || echo 0)}" \
-        node "$ROOT/script/generate-release-metadata.mjs" "$STAGE"
+        node "$ROOT/script/generate-release-metadata.mjs" "$STAGE" --profile full --platform android
 else
     log "没有 node,跳过 sbom/build-info 生成"
 fi
@@ -180,6 +180,9 @@ else
     (cd "$(dirname "$STAGE")" && shasum -a 256 "$(basename "$STAGE").tar.gz") > "$STAGE.tar.gz.sha256"
 fi
 
+if [[ "${ORZ_SKIP_VERIFY:-0}" != "1" ]]; then
+    node "$ROOT/script/verify-artifact.mjs" "$STAGE.tar.gz"
+fi
 log "ABI: ${ABIS[*]}"
 log "产物: $STAGE.tar.gz"
 cat "$STAGE.tar.gz.sha256"

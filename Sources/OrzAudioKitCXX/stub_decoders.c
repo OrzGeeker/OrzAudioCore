@@ -7,7 +7,13 @@
 
 #include "audio_engine.h"
 
+#if defined(_MSC_VER)
+/* MSVC has no weak symbols. The lite build is the only profile that compiles
+ * this file, so plain definitions cannot collide with real decoders. */
+#define WEAK
+#else
 #define WEAK __attribute__((weak))
+#endif
 
 WEAK const Decoder decoder_openmpt = {0};
 WEAK const Decoder decoder_gme = {0};

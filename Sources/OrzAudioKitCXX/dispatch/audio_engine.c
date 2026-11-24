@@ -84,7 +84,11 @@ const OrzDecoderDescriptor *orz_registry_find(const char *format) {
 }
 
 // Compatibility symbol retained for one release. Registration is now static.
+#if defined(_MSC_VER)
+__declspec(noinline) void register_all(void) {}
+#else
 __attribute__((used)) __attribute__((noinline)) void register_all(void) {}
+#endif
 
 // ── orz_audio_can_decode（保留，供 JS 调用）──
 EMSCRIPTEN_KEEPALIVE
