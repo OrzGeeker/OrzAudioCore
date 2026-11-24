@@ -9,7 +9,7 @@ instances are isolated and different instances can render concurrently.
 | Need | Profile | Artifact |
 |---|---|---|
 | Apache-2.0, YM/MIDI/SoundMon only | `builtin-lite` | SwiftPM source, lite XCFramework, `-builtin-lite` tarball |
-| All 23 formats, self-hosted/server | `full`/`server` | macOS/Linux tarball, iOS full XCFramework, Android AAR |
+| All 23 formats, self-hosted/server | `full`/`server` | macOS/Linux/Windows tarball, iOS full XCFramework, Android AAR |
 | Browser playback | `full` + `builtin-lite` | `@orzmusic/audio-core` npm tarball |
 
 The full/server artifacts are GPL-3.0-or-later because they statically link GPL

@@ -21,6 +21,7 @@ case "$PRESET" in
   macos-arm64)       platform="${ORZ_PLATFORM:-macos-arm64}"; profile="${ORZ_PROFILE_NAME:-full}" ;;
   macos-x86_64)      platform="${ORZ_PLATFORM:-macos-x86_64}"; profile="${ORZ_PROFILE_NAME:-full}" ;;
   macos-arm64-full)  platform="${ORZ_PLATFORM:-macos-arm64}"; profile="${ORZ_PROFILE_NAME:-full}" ;;
+  windows-x86_64-full) platform="${ORZ_PLATFORM:-windows-x86_64}"; profile="${ORZ_PROFILE_NAME:-full}" ;;
   macos-arm64-lite)  platform="${ORZ_PLATFORM:-macos-arm64}"; profile="${ORZ_PROFILE_NAME:-builtin-lite}" ;;
   linux-x86_64)      platform="${ORZ_PLATFORM:-linux-x86_64}"; profile="${ORZ_PROFILE_NAME:-server}" ;;
   linux-arm64)       platform="${ORZ_PLATFORM:-linux-arm64}"; profile="${ORZ_PROFILE_NAME:-server}" ;;
@@ -50,7 +51,30 @@ for candidate in \
   "$ROOT/.cmake-build/$PRESET/Release/orz_artifact_probe"; do
   [[ -x "$candidate" ]] && { probe="$candidate"; break; }
 done
-if [[ -n "$probe" ]]; then cp "$probe" "$STAGE/bin/"; fi
+if [[ -n "$probe" ]]; then
+  cp "$probe" "$STAGE/bin/"
+  # Windows probe needs OrzAudioCore.dll next to it for the loader.
+  find "$STAGE/native" -maxdepth 3 -name '*.dll' -type f -exec cp {} "$STAGE/bin/" \; 2>/dev/null || true
+fi
+if [[ "$platform" == windows-* ]]; then
+  # Ship a COFF import library alongside the MinGW .dll.a so MSVC/clang-cl
+  # consumers can link the same C ABI DLL without rebuilding.
+  dll="$(find "$STAGE/native" -name '*.dll' -type f | head -1)"
+  mingw_implib="$(find "$STAGE/native" -name '*.dll.a' -type f | head -1)"
+  if [[ -n "$dll" ]]; then
+    cp "$dll" "$STAGE/bin/" 2>/dev/null || true
+    def="$STAGE/native/lib/OrzAudioCore.def"
+    if command -v dlltool >/dev/null 2>&1; then
+      dlltool -z "$def" --export-all-symbols "$dll" >/dev/null 2>&1 || true
+      if [[ -f "$def" ]]; then
+        dlltool -k -m i386:x86-64 -d "$def" -l "$STAGE/native/lib/OrzAudioCore.lib" >/dev/null 2>&1 || true
+      fi
+    fi
+    if [[ ! -f "$STAGE/native/lib/OrzAudioCore.lib" && -n "$mingw_implib" ]]; then
+      cp "$mingw_implib" "$STAGE/native/lib/OrzAudioCore.lib"
+    fi
+  fi
+fi
 "$ROOT/script/collect-licenses.sh" "$STAGE/licenses" "$profile"
 cp "$ROOT/Docs/orz-audio-core.md" "$STAGE/README.md"
 node "$ROOT/script/generate-release-metadata.mjs" "$STAGE" --profile "$profile" --platform "$platform"

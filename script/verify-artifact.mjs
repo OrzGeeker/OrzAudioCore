@@ -75,8 +75,11 @@ try {
   if (absolute.endsWith('.zip') || absolute.endsWith('.aar')) {
     execFileSync('unzip', ['-q', absolute, '-d', unpack]);
   } else {
-    const tarArgs = process.platform === 'win32' ? ['--force-local', '-xzf', absolute, '-C', unpack] : ['-xzf', absolute, '-C', unpack];
-    execFileSync('tar', tarArgs);
+    // Windows runner's PATH may resolve MSYS2/Git GNU tar, which mangles
+    // drive-letter paths. Prefer the in-box bsdtar with native paths.
+    const windowsTar = 'C:\\Windows\\System32\\tar.exe';
+    const tarBinary = process.platform === 'win32' && fs.existsSync(windowsTar) ? windowsTar : 'tar';
+    execFileSync(tarBinary, ['-xzf', absolute, '-C', unpack]);
   }
   const roots = fs.readdirSync(unpack);
   const root = roots.includes('metadata') || roots.includes('package')

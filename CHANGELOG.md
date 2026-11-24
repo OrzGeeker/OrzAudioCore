@@ -23,6 +23,14 @@
 - Every xcframework slice ships a `module.modulemap`; package archives carry
   metadata, SBOM and licenses.
 
+### Windows
+
+- Added native x86_64 **full** profile built with MSYS2/MinGW64: DLL + MinGW
+  import library + COFF import library, same 23 formats and cache namespace as
+  other full profiles.
+- `windows-full` CI/release runs the 23-format conformance suite on Windows and
+  compares it with Linux before publish. `windows-lite` remains Apache-2.0.
+
 ### Android
 
 - Added official `SDK/Android` AAR (`com.orzgeeker:audio-core-android`) with
