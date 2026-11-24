@@ -266,7 +266,7 @@ jobs:
 
   conformance-android:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -289,11 +289,15 @@ jobs:
       - run: node script/fetch-conformance-fixtures.mjs
       - name: Run on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: "yes"
         with:
           api-level: 29
           target: default
           arch: x86_64
           disable-animations: true
+          emulator-boot-timeout: 1800
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel off
           script: ./script/run-conformance-android.sh --out conformance/android-x86_64
       - uses: actions/upload-artifact@v4
         with:

@@ -28,6 +28,15 @@ REMOTE="/data/local/tmp/orz-conformance"
 "$ADB" shell "chmod 755 $REMOTE/orz_conformance"
 TARGET="$OUT"; mkdir -p "$TARGET"
 INDEX="$TARGET/formats.jsonl"; : > "$INDEX"
+node -e '
+  const fs=require("fs"), path=require("path");
+  const manifest=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+  for (const entry of manifest.formats) {
+    if (entry.path) continue;
+    fs.writeFileSync(path.join(process.argv[2], `${entry.format}.json`),
+      JSON.stringify({format: entry.format, skipped: entry.skipReason}, null, 2)+"\n");
+  }
+' "$ROOT/Tests/conformance/manifest.json" "$TARGET"
 
 node -e '
   const fs=require("fs");
@@ -44,8 +53,8 @@ while IFS=$'\t' read -r format relative; do
   fi
   [[ -f "$source" ]] || { echo "missing fixture for $format" >&2; continue; }
   remote_fixture="$REMOTE/fixture.$format"
-  "$ADB" push "$source" "$remote_fixture" >/dev/null
-  if "$ADB" shell "$REMOTE/orz_conformance --format $format --input $remote_fixture --frames $FRAMES" > "$TARGET/$format.json" 2>"$TARGET/$format.err"; then
+  "$ADB" push "$source" "$remote_fixture" </dev/null >/dev/null
+  if "$ADB" shell "$REMOTE/orz_conformance --format $format --input $remote_fixture --frames $FRAMES" </dev/null > "$TARGET/$format.json" 2>"$TARGET/$format.err"; then
     echo "{\"format\":\"$format\",\"status\":\"ok\"}" >> "$INDEX"
   else
     echo "{\"format\":\"$format\",\"status\":\"error\"}" >> "$INDEX"

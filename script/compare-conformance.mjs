@@ -53,6 +53,7 @@ for (const file of files) {
   const candidatePath = path.join(candidateDir, file);
   const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
   if (!fs.existsSync(candidatePath)) {
+    if (baseline.skipped) continue;
     problems.push(`${file}: missing from candidate`);
     continue;
   }
