@@ -248,8 +248,8 @@ build_libgme() {
             return 1
         }
 
-    make -j"$JOBS" >"$build_log" 2>&1 || {
-        warn "GME make failed"
+    cmake --build . --parallel "$JOBS" >"$build_log" 2>&1 || {
+        warn "GME build failed"
         cat "$build_log" >&2
         popd >/dev/null
         return 1
@@ -660,9 +660,11 @@ build_libv2m() {
         local src="$src_dir/src/$f"
         if [ -f "$src" ]; then
             local obj_name="${f%.cpp}.o"
-            $HOST_CXX $NATIVE_CXXFLAGS -c "$src" -o "$build_dir/$obj_name" \
-                -I"$src_dir/src" -O2 2>/dev/null || {
-                warn "v2m $f compile failed"; continue
+            $HOST_CXX $NATIVE_CXXFLAGS -std=c++17 -c "$src" -o "$build_dir/$obj_name" \
+                -I"$src_dir/src" -O2 2>"$build_dir/$obj_name.log" || {
+                warn "v2m $f compile failed"
+                cat "$build_dir/$obj_name.log" >&2
+                continue
             }
             objs="$objs $build_dir/$obj_name"
         fi
