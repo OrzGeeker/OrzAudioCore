@@ -108,8 +108,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - {os: macos-15, platform: macos-arm64}
-          - {os: ubuntu-24.04, platform: linux-x86_64}
+          - {os: macos-15, platform: macos-arm64-lite}
+          - {os: ubuntu-24.04, platform: linux-x86_64-lite}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: {pattern: conformance-lite-*, path: conformance, merge-multiple: true}
-      - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
+      - run: node script/compare-conformance.mjs conformance/macos-arm64-lite conformance/linux-x86_64-lite
 
   conformance-compare-full:
     needs: [full-macos, windows-full]
