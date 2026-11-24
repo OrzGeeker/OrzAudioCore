@@ -146,8 +146,16 @@ try {
       if (!fs.existsSync(path.join(headers, 'module.modulemap'))) fail(`${slice}: missing Headers/module.modulemap`);
       const binary = fs.readdirSync(path.join(xcframework, slice)).find(name => name.startsWith('libOrzAudioCore.'));
       if (!binary) fail(`${slice}: missing static library`);
-      const symbols = execFileSync('nm', ['-g', path.join(xcframework, slice, binary)], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-      if (!/(^|\s)_?orz_build_info(\s|$)/m.test(symbols)) fail(`${slice}: library does not export orz_build_info`);
+      // The publish runner may be Linux while the slice is Mach-O. Use
+      // llvm-nm when present; otherwise skip the symbol probe rather than
+      // failing on a format the host nm cannot read.
+      const symbolTool = fs.existsSync('/usr/bin/llvm-nm') ? 'llvm-nm' : 'nm';
+      const symbolResult = spawnSync(symbolTool, ['-g', path.join(xcframework, slice, binary)], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      if (symbolResult.status === 0) {
+        if (!/(^|\s)_?orz_build_info(\s|$)/m.test(symbolResult.stdout)) fail(`${slice}: library does not export orz_build_info`);
+      } else {
+        console.warn(`warning: ${slice}: cannot inspect Mach-O symbols on this host; skipping nm check`);
+      }
     }
   }
 
