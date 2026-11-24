@@ -21,7 +21,7 @@ jobs:
       - run: >-
           node script/run-conformance.mjs
           --binary .cmake-build/builtin-lite/orz_conformance
-          --out "$RUNNER_TEMP/conformance/linux-x86_64-lite"
+          --out "$RUNNER_TEMP/conformance"
           --platform linux-x86_64-lite --formats ym,mid,bp
       - uses: actions/upload-artifact@v4
         with:
@@ -57,7 +57,7 @@ jobs:
       - run: >-
           node script/run-conformance.mjs
           --binary .cmake-build/${{ matrix.preset }}/orz_conformance
-          --out "$RUNNER_TEMP/conformance/linux-${{ matrix.arch }}"
+          --out "$RUNNER_TEMP/conformance"
           --platform linux-${{ matrix.arch }} --require-all
       - uses: actions/upload-artifact@v4
         with:
@@ -126,7 +126,7 @@ jobs:
       - run: >-
           node script/run-conformance.mjs
           --binary .cmake-build/${{ steps.host.outputs.preset }}/orz_conformance
-          --out "$RUNNER_TEMP/conformance/macos-arm64" --platform macos-arm64 --require-all
+          --out "$RUNNER_TEMP/conformance" --platform macos-arm64 --require-all
       - uses: actions/upload-artifact@v4
         with:
           name: apple
@@ -187,7 +187,7 @@ jobs:
         shell: bash
         run: |
           node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
-          node script/run-conformance.mjs --binary .cmake-build/builtin-lite/Release/orz_conformance.exe             --out "$RUNNER_TEMP/conformance/windows-x86_64" --platform windows-x86_64 --formats ym,mid,bp
+          node script/run-conformance.mjs --binary .cmake-build/builtin-lite/Release/orz_conformance.exe             --out "$RUNNER_TEMP/conformance" --platform windows-x86_64 --formats ym,mid,bp
       - uses: actions/upload-artifact@v4
         with:
           name: windows
