@@ -326,15 +326,20 @@ jobs:
         with: {path: release, merge-multiple: true}
       - name: Verify every asset and generate a lockfile
         run: node script/check-release-readiness.mjs "${GITHUB_REF_NAME#v}" --release-dir release
+      - name: Bundle conformance reports
+        run: |
+          mapfile -t dirs < <(find release -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/index.json' \; -print | xargs -r -n1 basename)
+          tar -czf "release/conformance-${GITHUB_REF_NAME#v}.tar.gz" -C release "${dirs[@]}"
+          shasum -a 256 "release/conformance-${GITHUB_REF_NAME#v}.tar.gz" > "release/conformance-${GITHUB_REF_NAME#v}.tar.gz.sha256"
       - name: Publish release candidate
         if: contains(github.ref_name, '-')
         run: |
-          mapfile -d '' assets < <(find release -type f -print0)
+          mapfile -d '' assets < <(find release -maxdepth 1 -type f -print0)
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --prerelease --generate-notes --verify-tag
         env: {GH_TOKEN: "${{ github.token }}"}
       - name: Publish stable release
         if: ${{ !contains(github.ref_name, '-') }}
         run: |
-          mapfile -d '' assets < <(find release -type f -print0)
+          mapfile -d '' assets < <(find release -maxdepth 1 -type f -print0)
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag --latest
         env: {GH_TOKEN: "${{ github.token }}"}
