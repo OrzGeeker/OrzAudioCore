@@ -56,6 +56,25 @@ if [[ -n "$probe" ]]; then
   # Windows probe needs OrzAudioCore.dll next to it for the loader.
   find "$STAGE/native" -maxdepth 3 -name '*.dll' -type f -exec cp {} "$STAGE/bin/" \; 2>/dev/null || true
 fi
+if [[ "$platform" == windows-* ]]; then
+  # Ship a COFF import library alongside the MinGW .dll.a so MSVC/clang-cl
+  # consumers can link the same C ABI DLL without rebuilding.
+  dll="$(find "$STAGE/native" -name '*.dll' -type f | head -1)"
+  mingw_implib="$(find "$STAGE/native" -name '*.dll.a' -type f | head -1)"
+  if [[ -n "$dll" ]]; then
+    cp "$dll" "$STAGE/bin/" 2>/dev/null || true
+    def="$STAGE/native/lib/OrzAudioCore.def"
+    if command -v dlltool >/dev/null 2>&1; then
+      dlltool -z "$def" --export-all-symbols "$dll" >/dev/null 2>&1 || true
+      if [[ -f "$def" ]]; then
+        dlltool -k -m i386:x86-64 -d "$def" -l "$STAGE/native/lib/OrzAudioCore.lib" >/dev/null 2>&1 || true
+      fi
+    fi
+    if [[ ! -f "$STAGE/native/lib/OrzAudioCore.lib" && -n "$mingw_implib" ]]; then
+      cp "$mingw_implib" "$STAGE/native/lib/OrzAudioCore.lib"
+    fi
+  fi
+fi
 "$ROOT/script/collect-licenses.sh" "$STAGE/licenses" "$profile"
 cp "$ROOT/Docs/orz-audio-core.md" "$STAGE/README.md"
 node "$ROOT/script/generate-release-metadata.mjs" "$STAGE" --profile "$profile" --platform "$platform"

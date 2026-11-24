@@ -1,40 +1,61 @@
-# Windows status
+# Windows SDK
 
-Windows x86_64 now has an official **builtin-lite** release artifact and CI:
-`OrzAudioCore-<ver>-windows-x86_64-builtin-lite.tar.gz` (MSVC, static library,
-`ym`/`mid`/`bp`). The full profile is still built with POSIX autotools and is not
-released for Windows; use Web/WASM or the server for the other 20 formats.
+Windows x86_64 is a first-class release target with the same **full** profile as
+macOS/Linux/Apple/Android/Web:
 
-## What works today
+- `OrzAudioCore-<ver>-windows-x86_64-full.tar.gz`
+  - `native/bin/OrzAudioCore.dll` (C ABI, all 23 formats)
+  - `native/lib/libOrzAudioCore.dll.a` (MinGW import library)
+  - `native/lib/OrzAudioCore.lib` (COFF/MSVC import library when `dlltool` is available)
+  - `native/include/orz_audio_core.h`, CMake package, metadata, SBOM, licenses
+- `OrzAudioCore-<ver>-windows-x86_64-builtin-lite.tar.gz`
+  - static `OrzAudioCore.lib`, 3 formats, no GPL decoder.
 
-- `builtin-lite` (`ym`, `mid`, `bp`) via CMake:
+## Build
 
-  ```bat
-  cmake -S . -B build -DORZ_PROFILE=builtin-lite -DORZ_BUILD_TESTS=ON
-  cmake --build build --config Release
-  ctest --test-dir build -C Release --output-on-failure
-  ```
+The full profile is built natively with MSYS2/MinGW64 (stock Windows runner),
+using the same locked decoder sources as every other platform:
 
-- The `OrzAudioCore::OrzAudioCore` CMake package and C header.
-- Web/WASM and server decoding remain the recommended Windows playback path
-  until a native full profile is published.
+```bash
+./script/fetch-decoder-sources.sh
+CC=gcc CXX=g++ AR=ar RANLIB=ranlib \
+  ORZ_HOST_TRIPLE=x86_64-w64-mingw32 \
+  CMAKE_GENERATOR="MinGW Makefiles" CMAKE_PREFIX_PATH=/mingw64 \
+  ./script/build-native-libs.sh --strict
+CMAKE_GENERATOR="MinGW Makefiles" CMAKE_PREFIX_PATH=/mingw64 \
+  ./script/package-sdk.sh windows-x86_64-full release
+```
 
-## Verified in CI
+CMake preset `windows-x86_64-full` builds a DLL + import libraries. The DLL
+contains the same decoder set and `cacheNamespace` as full macOS/Linux.
 
-`windows-lite` builds with MSVC, runs the ABI/consumer tests, packages the SDK,
-runs the lite conformance probe and compares its PCM against the Linux lite
-build (with bounded float drift).
+## Consume
 
-## Gaps for a Windows full-profile release
+### CMake / MinGW
 
-1. Build the nine decoder archives with MSVC/clang-cl (or vcpkg) and add a
-   `windows-x86_64` CMake preset with `ORZ_NATIVE_LIB`.
-2. Add `ORZ_AUDIO_CORE_SHARED` exports/version resource for a DLL build.
-3. Add `windows-latest` CI for lite ABI + consumer smoke; full profile needs a
-   locked dependency build story.
-4. Add a package artifact `OrzAudioCore-<ver>-windows-x86_64-full.zip` with
-   manifest/SBOM/licenses and a conformance report.
-5. Verify `orz_build_info()` link flags and UTF-8 path handling on MSVC.
+```cmake
+find_package(OrzAudioCore 1 REQUIRED CONFIG)
+target_link_libraries(app PRIVATE OrzAudioCore::OrzAudioCore)
+```
 
-Until then, treat Windows as source-only and do not claim it in the consumer
-matrix.
+Deploy `OrzAudioCore.dll` next to the executable.
+
+### MSVC / clang-cl
+
+Link `native/lib/OrzAudioCore.lib` (import library), include
+`native/include/orz_audio_core.h`, and deploy `native/bin/OrzAudioCore.dll`.
+The SDK itself is built with MinGW, but the public boundary is the stable C ABI;
+no C++ ABI is exposed.
+
+## Verification
+
+CI/release `windows-full` builds all 9 decoders, packages the SDK, runs the
+artifact probe (`runtime formatCount=23`), and runs the 23-format conformance
+suite on Windows. Its report is compared with the Linux full report before
+publishing. `windows-lite` separately covers the builtin-lite profile.
+
+## Licensing
+
+The full Windows DLL statically links GPL-family decoders and is distributed as
+GPL-3.0-or-later; the lite archive is Apache-2.0. See
+[licensing.md](licensing.md).

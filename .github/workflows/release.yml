@@ -187,14 +187,64 @@ jobs:
         shell: bash
         run: |
           node script/fetch-conformance-fixtures.mjs --format ym,mid,bp
-          node script/run-conformance.mjs --binary .cmake-build/builtin-lite/Release/orz_conformance.exe             --out "$RUNNER_TEMP/conformance" --platform windows-x86_64 --formats ym,mid,bp
+          node script/run-conformance.mjs --binary .cmake-build/builtin-lite/Release/orz_conformance.exe             --out "$RUNNER_TEMP/conformance" --platform windows-x86_64-lite --formats ym,mid,bp
       - uses: actions/upload-artifact@v4
         with:
-          name: windows
+          name: windows-lite
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
             ${{ runner.temp }}/conformance/
+
+  windows-full:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            git make autoconf automake libtool patch tar gzip curl
+            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja mingw-w64-x86_64-zlib pkgconf
+      - run: ./script/fetch-decoder-sources.sh
+      - name: Build full decoder archives
+        env:
+          CC: gcc
+          CXX: g++
+          AR: ar
+          RANLIB: ranlib
+          ORZ_HOST_TRIPLE: x86_64-w64-mingw32
+          CMAKE_GENERATOR: MinGW Makefiles
+          CMAKE_PREFIX_PATH: /mingw64
+          JOBS: "4"
+        run: ./script/build-native-libs.sh --strict
+      - name: Package Windows full SDK
+        env:
+          CMAKE_GENERATOR: MinGW Makefiles
+          CMAKE_PREFIX_PATH: /mingw64
+          SOURCE_DATE_EPOCH: "0"
+        run: ./script/package-sdk.sh windows-x86_64-full win-release
+      - name: Full conformance on Windows
+        run: |
+          export PATH="$PWD/.cmake-build/windows-x86_64-full:$PATH"
+          node script/fetch-conformance-fixtures.mjs
+          node script/run-conformance.mjs --binary .cmake-build/windows-x86_64-full/orz_conformance.exe \
+            --out conformance --platform windows-x86_64 --require-all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-full
+          path: |
+            win-release/*.tar.gz
+            win-release/*.sha256
+            conformance/
 
   conformance-android:
     runs-on: ubuntu-24.04
@@ -233,10 +283,16 @@ jobs:
           path: conformance/
 
   conformance-compare:
-    needs: [native, windows-lite, server, apple, web, conformance-android]
+    needs: [native, windows-lite, windows-full, server, apple, web, conformance-android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {pattern: native, path: conformance, merge-multiple: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: windows-lite, path: conformance, merge-multiple: true}
+      - uses: actions/download-artifact@v4
+        with: {pattern: windows-full, path: conformance, merge-multiple: true}
       - uses: actions/download-artifact@v4
         with: {pattern: "server-*", path: conformance, merge-multiple: true}
       - uses: actions/download-artifact@v4
@@ -246,12 +302,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with: {pattern: conformance-android, path: conformance, merge-multiple: true}
       - run: node script/compare-conformance.mjs conformance/macos-arm64 conformance/linux-x86_64
-      - run: node script/compare-conformance.mjs conformance/linux-x86_64-lite conformance/windows-x86_64 --allow-pcm-drift
+      - run: node script/compare-conformance.mjs conformance/linux-x86_64-lite conformance/windows-x86_64-lite --allow-pcm-drift
+      - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/windows-x86_64 --allow-pcm-drift
       - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/web --allow-pcm-drift
       - run: node script/compare-conformance.mjs conformance/linux-x86_64 conformance/android-x86_64 --allow-pcm-drift
 
   publish:
-    needs: [native, windows-lite, server, web, apple, android, conformance-compare]
+    needs: [native, windows-lite, windows-full, server, web, apple, android, conformance-compare]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
