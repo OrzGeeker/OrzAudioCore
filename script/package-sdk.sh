@@ -11,7 +11,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PRESET="${1:-builtin-lite}"
 OUT="${2:-$ROOT/.cmake-build/release}"
-VERSION="$(node -p "require('$ROOT/decoder-manifest.json').sdkVersion")"
+VERSION="$(sed -n 's/.*"sdkVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/decoder-manifest.json" | head -1)"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 IS_MULTI_CONFIG=false
