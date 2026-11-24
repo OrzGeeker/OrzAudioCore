@@ -2,8 +2,6 @@ name: Android emulator check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [fix/android-emulator-tcg]
 
 jobs:
   android-conformance:

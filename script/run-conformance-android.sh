@@ -28,6 +28,15 @@ REMOTE="/data/local/tmp/orz-conformance"
 "$ADB" shell "chmod 755 $REMOTE/orz_conformance"
 TARGET="$OUT"; mkdir -p "$TARGET"
 INDEX="$TARGET/formats.jsonl"; : > "$INDEX"
+node -e '
+  const fs=require("fs"), path=require("path");
+  const manifest=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+  for (const entry of manifest.formats) {
+    if (entry.path) continue;
+    fs.writeFileSync(path.join(process.argv[2], `${entry.format}.json`),
+      JSON.stringify({format: entry.format, skipped: entry.skipReason}, null, 2)+"\n");
+  }
+' "$ROOT/Tests/conformance/manifest.json" "$TARGET"
 
 node -e '
   const fs=require("fs");
