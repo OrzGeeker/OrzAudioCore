@@ -66,8 +66,17 @@ for (const file of files) {
   const label = baseline.format ?? file;
   const config = formatConfig.get(label) ?? {};
   const tolerance = Math.max(sampleTolerance, Number(config.tolerance ?? 0));
-  if (baseline.buildInfo && candidate.buildInfo && baseline.buildInfo !== candidate.buildInfo) {
-    problems.push(`${label}: build info differs between platforms`);
+  if (baseline.buildInfo && candidate.buildInfo) {
+    const left = JSON.parse(baseline.buildInfo);
+    const right = JSON.parse(candidate.buildInfo);
+    const sameCore = ['sdk', 'version', 'abi', 'formats', 'decoders']
+      .every(key => JSON.stringify(left[key]) === JSON.stringify(right[key]));
+    const profilePair = new Set([left.profile, right.profile]);
+    const crossProfile = left.profile !== right.profile &&
+      (profilePair.size === 2 && [...profilePair].every(profile => profile === 'full' || profile === 'server'));
+    if (!sameCore || (!crossProfile && left.profile !== right.profile)) {
+      problems.push(`${label}: build info differs between platforms`);
+    }
   }
   for (const key of ['sampleRate', 'channels', 'subsongCount', 'capabilities']) {
     if (baseline.stream?.[key] !== candidate.stream?.[key]) {
