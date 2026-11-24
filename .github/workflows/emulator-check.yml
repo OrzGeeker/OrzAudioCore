@@ -1,0 +1,45 @@
+name: Android emulator check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  android-conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27b
+          link-to-sdk: true
+      - uses: actions/cache@v4
+        with:
+          path: .wasm-build/cache
+          key: orz-decoder-sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('script/fetch-decoder-sources.sh') }}
+      - run: ./script/fetch-decoder-sources.sh
+      - name: Build x86_64 conformance probe
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          JOBS: "4"
+        run: ./script/build-android-conformance.sh
+      - run: node script/fetch-conformance-fixtures.mjs
+      - name: Run on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: "yes"
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 1800
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel off
+          script: ./script/run-conformance-android.sh --out conformance/android-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-android
+          path: conformance/
