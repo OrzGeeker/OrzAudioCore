@@ -44,8 +44,8 @@ while IFS=$'\t' read -r format relative; do
   fi
   [[ -f "$source" ]] || { echo "missing fixture for $format" >&2; continue; }
   remote_fixture="$REMOTE/fixture.$format"
-  "$ADB" push "$source" "$remote_fixture" >/dev/null
-  if "$ADB" shell "$REMOTE/orz_conformance --format $format --input $remote_fixture --frames $FRAMES" > "$TARGET/$format.json" 2>"$TARGET/$format.err"; then
+  "$ADB" push "$source" "$remote_fixture" </dev/null >/dev/null
+  if "$ADB" shell "$REMOTE/orz_conformance --format $format --input $remote_fixture --frames $FRAMES" </dev/null > "$TARGET/$format.json" 2>"$TARGET/$format.err"; then
     echo "{\"format\":\"$format\",\"status\":\"ok\"}" >> "$INDEX"
   else
     echo "{\"format\":\"$format\",\"status\":\"error\"}" >> "$INDEX"
